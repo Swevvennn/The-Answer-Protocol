@@ -11,12 +11,16 @@ fn main() {
     let event = messages::Event {
         scope: messages::EventScope::Global,
         kind: messages::EventKind::Chat,
-        payload: messages::Payload::new(Test {
-            s: "String".to_string(),
-            i: 73,
-        })
+        payload: messages::Payload { args: vec![
+            messages::PayloadKind::new(Test {
+                s: "String".to_string(),
+                i: 73,
+            }),
+            messages::PayloadKind::String("abc".to_string()),
+            messages::PayloadKind::KeyValue { key: "key".to_string(), value: "value".to_string() }
+        ] }
     };
     println!("{}", event);
-    let test: Test = event.payload.extract();
+    let test: Test = event.payload.args[0].extract();
     print!("{}", test.s);
 }

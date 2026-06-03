@@ -14,6 +14,9 @@ pub use message::Message;
 
 mod payload;
 pub use payload::Payload;
+pub use payload::PayloadKind;
 
 mod response;
 pub use response::Response;
+
+pub mod utils;

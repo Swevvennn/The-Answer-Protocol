@@ -1,6 +1,7 @@
 use std::fmt;
 
 use crate::messages::Payload;
+use crate::messages::utils::write_vec;
 
 pub enum EventScope {
     Global,
@@ -52,12 +53,11 @@ pub struct Event {
 
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "EVT {} {} {}",
-            self.scope,
-            self.kind,
-            self.payload
-        )
+        write_vec(f, vec![
+            "EVT".to_string(),
+            self.scope.to_string(),
+            self.kind.to_string(),
+            self.payload.to_string(),
+        ])
     }
 }
