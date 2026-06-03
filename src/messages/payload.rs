@@ -2,6 +2,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::fmt;
+use std::io::Error;
 
 use crate::messages::utils::write_vec;
 
@@ -15,13 +16,25 @@ pub enum PayloadKind {
 }
 
 impl PayloadKind {
-    pub fn new<T: Serialize>(json: T) -> Self {
-        Self::Json(serde_json::to_value(json).unwrap())
+    pub fn new<T: Serialize>(data: T) -> Self {
+        Self::Json(serde_json::to_value(data).unwrap())
     }
 
-    pub fn extract<T: DeserializeOwned>(&self) -> T {
+    pub fn is_string(&self) -> bool {
+        matches!(self, Self::String(_))
+    }
+
+    pub fn is_key_value(&self) -> bool {
+        matches!(self, Self::KeyValue { .. })
+    }
+
+    pub fn is_json(&self) -> bool {
+        matches!(self, Self::Json(_))
+    }
+
+    pub fn extract<T: DeserializeOwned>(&self) -> Result<T, Error> {
         match self {
-            Self::Json(json) => serde_json::from_value(json.clone()).unwrap(),
+            Self::Json(json) => serde_json::from_value(json.clone()).map_err(|e| e.into()),
             _ => panic!("payload isn't a json"),
         }
     }
@@ -42,6 +55,9 @@ pub struct Payload {
 }
 
 impl Payload {
+    pub fn from_string(str: String) -> Result<Payload, Error> {
+        Ok(Payload { args: vec![ PayloadKind::String(str) ] })
+    }
 }
 
 impl fmt::Display for Payload {
@@ -53,30 +69,3 @@ impl fmt::Display for Payload {
         write_vec(f, v)
     }
 }
-
-// pub struct Payload {
-//     data: Value,
-// }
-
-// impl Payload {
-//     pub fn new<T: Serialize>(data: T) -> Self {
-//         Self {
-//             data: serde_json::to_value(data).unwrap(),
-//         }
-//     }
-
-//     pub fn extract<T: DeserializeOwned>(&self) -> T {
-//         serde_json::from_value(self.data.clone()).unwrap()
-//     }
-// }
-
-// impl fmt::Display for Payload {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(
-//             f,
-//             "{}",
-//             serde_json::to_string(&self.data)
-//                 .map_err(|_| fmt::Error)?
-//         )
-//     }
-// }

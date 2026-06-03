@@ -6,3 +6,7 @@ pub enum Message {
     Event(Event),
     Response(Response),
 }
+
+impl Message {
+    
+}

@@ -1,5 +1,11 @@
 use std::fmt;
+use std::io;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
+use crate::messages::utils::{invalid_input, write_vec};
+
+#[derive(EnumIter)]
 pub enum Error {
     NameInUse,
     NoExit,
@@ -46,15 +52,30 @@ impl Error {
             Self::SendFailed => "SEND_FAILED",
         }
     }
+
+    pub fn from_string(mut str: String) -> Result<Error, io::Error> {
+        if !str.starts_with("ERR ") {
+            return Err(invalid_input("not an error"))
+        }
+        str = str.chars().skip(4).collect();
+        for kind in Error::iter() {
+            let code = kind.code().to_string() + " ";
+            if str.starts_with(&code) {
+                if &str[code.len()..] == kind.message() {
+                    return Ok(kind);
+                }
+            }
+        }
+        Err(invalid_input("invalid error"))
+    }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "ERR {} {}",
-            self.code(),
-            self.message()
-        )
+        write_vec(f, vec![
+            "ERR".to_string(),
+            self.code().to_string(),
+            self.message().to_string(),
+        ])
     }
 }

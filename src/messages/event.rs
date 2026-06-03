@@ -1,8 +1,11 @@
 use std::fmt;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 use crate::messages::Payload;
 use crate::messages::utils::write_vec;
 
+#[derive(EnumIter)]
 pub enum EventScope {
     Global,
     Group,
@@ -21,6 +24,7 @@ impl fmt::Display for EventScope {
     }
 }
 
+#[derive(EnumIter)]
 pub enum EventKind {
     Chat,
     Invite,
