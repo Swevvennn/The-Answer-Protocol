@@ -1,7 +1,6 @@
-use serde::Serialize;
-use serde::de::DeserializeOwned;
-use serde_json::Value;
 use std::fmt;
+
+use crate::messages::Payload;
 
 pub enum EventScope {
     Global,
@@ -21,7 +20,6 @@ impl fmt::Display for EventScope {
     }
 }
 
-#[derive(Serialize)]
 pub enum EventKind {
     Chat,
     Invite,
@@ -49,33 +47,17 @@ impl fmt::Display for EventKind {
 pub struct Event {
     pub scope: EventScope,
     pub kind: EventKind,
-    pub data: Value,
-}
-
-impl Event {
-    pub fn new<T: Serialize>(scope: EventScope, kind: EventKind, data: T) -> Self {
-        Self {
-            scope,
-            kind,
-            data: serde_json::to_value(data).unwrap(),
-        }
-    }
-
-    pub fn extract<T: DeserializeOwned>(&self) -> T {
-        serde_json::from_value(self.data.clone()).unwrap()
-    }
+    pub payload: Payload,
 }
 
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let data = serde_json::to_string(&self.data)
-            .map_err(|_| fmt::Error)?;
         write!(
             f,
             "EVT {} {} {}",
             self.scope,
             self.kind,
-            data
+            self.payload
         )
     }
 }

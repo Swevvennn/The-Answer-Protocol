@@ -8,15 +8,15 @@ struct Test {
 }
 
 fn main() {
-    let event = messages::Event::new(
-        messages::EventScope::Global,
-        messages::EventKind::Chat,
-        Test {
-            s: "Caca".to_string(),
+    let event = messages::Event {
+        scope: messages::EventScope::Global,
+        kind: messages::EventKind::Chat,
+        payload: messages::Payload::new(Test {
+            s: "String".to_string(),
             i: 73,
-        }
-    );
+        })
+    };
     println!("{}", event);
-    let test: Test = event.extract();
+    let test: Test = event.payload.extract();
     print!("{}", test.s);
 }
