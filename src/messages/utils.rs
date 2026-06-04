@@ -1,6 +1,7 @@
 use std::fmt;
 use std::io::{Error, ErrorKind};
 
+use crate::messages::MessageParse;
 use crate::messages::Payload;
 
 pub fn write_vec(f: &mut fmt::Formatter<'_>, mut v: Vec<String>) -> fmt::Result {

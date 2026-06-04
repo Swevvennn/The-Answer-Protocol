@@ -63,18 +63,14 @@ impl MessageParse for Event {
             return Err(invalid_input("not an event"));
         }
         let err = Err(invalid_input("invalid event"));
-        match skip_space(&mut s) {
-            Ok(false) => return err,
-            Err(_) => return err,
-            _ => (),
-        };
+        if matches!(skip_space(&mut s), Ok(false) | Err(_)) {
+            return err;
+        }
         for scope in EventScope::iter() {
             if parse_begin(&mut s, &scope.to_string()) {
-                match skip_space(&mut s) {
-                    Ok(false) => return err,
-                    Err(_) => return err,
-                    _ => (),
-                };
+                if matches!(skip_space(&mut s), Ok(false) | Err(_)) {
+                    return err;
+                }
                 for kind in EventKind::iter() {
                     if parse_begin(&mut s, &kind.to_string()) {
                         return Ok(Event {
