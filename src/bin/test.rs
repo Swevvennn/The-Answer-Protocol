@@ -1,4 +1,4 @@
-use tap::messages::{Message, Error, PayloadKind};
+use tap::messages::{Message, MessageParse, Error, PayloadKind};
 
 fn test(str: &str) {
     println!("===== {} =====", str);

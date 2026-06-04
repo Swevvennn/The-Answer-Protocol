@@ -56,12 +56,12 @@ impl Error {
 }
 
 impl MessageParse for Error {
-    fn from_string(s: String) -> Result<Error, io::Error> {
+    fn from_string(s: &str) -> Result<Error, io::Error> {
         if !s.starts_with("ERR") {
             return Err(invalid_input("not an error"));
         }
         for kind in Error::iter() {
-            if s == kind.to_string() {
+            if s.to_string() == kind.to_string() {
                 return Ok(kind);
             }
         }

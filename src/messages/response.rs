@@ -10,12 +10,13 @@ pub struct Response {
 }
 
 impl MessageParse for Response {
-    fn from_string(mut s: String) -> Result<Response, Error> {
-        if !parse_begin(&mut s, "OK") {
+    fn from_string(s: &str) -> Result<Response, Error> {
+        let mut message = s.to_string();
+        if !parse_begin(&mut message, "OK") {
             return Err(invalid_input("not a response"));
         }
         Ok(Response {
-            payload: match parse_payload(&mut s) {
+            payload: match parse_payload(&mut message) {
                 Ok(v) => v,
                 Err(_) => return Err(invalid_input("invalid response")),
             }

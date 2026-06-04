@@ -60,12 +60,13 @@ pub struct Command {
 }
 
 impl MessageParse for Command {
-    fn from_string(mut s: String) -> Result<Command, Error> {
+    fn from_string(s: &str) -> Result<Command, Error> {
+        let mut message = s.to_string();
         for kind in CommandKind::iter() {
-            if parse_begin(&mut s, &kind.to_string()) {
+            if parse_begin(&mut message, &kind.to_string()) {
                 return Ok(Command {
                     kind,
-                    payload: match parse_payload(&mut s) {
+                    payload: match parse_payload(&mut message) {
                         Ok(v) => v,
                         Err(_) => return Err(invalid_input("invalid command")),
                     }
