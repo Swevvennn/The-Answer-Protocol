@@ -1,9 +1,11 @@
 use std::fmt;
+use std::io::Error;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
+use crate::messages::MessageParse;
 use crate::messages::Payload;
-use crate::messages::utils::write_vec;
+use crate::messages::utils::{invalid_input, parse_begin, parse_payload, skip_space, write_vec};
 
 #[derive(EnumIter)]
 pub enum EventScope {
@@ -53,6 +55,43 @@ pub struct Event {
     pub scope: EventScope,
     pub kind: EventKind,
     pub payload: Payload,
+}
+
+impl MessageParse for Event {
+    fn from_string(mut s: String) -> Result<Event, Error> {
+        if parse_begin(&mut s, "EVT") {
+            return Err(invalid_input("not an event"));
+        }
+        let err = Err(invalid_input("invalid event"));
+        match skip_space(&mut s) {
+            Ok(false) => return err,
+            Err(_) => return err,
+            _ => (),
+        };
+        for scope in EventScope::iter() {
+            if parse_begin(&mut s, &scope.to_string()) {
+                match skip_space(&mut s) {
+                    Ok(false) => return err,
+                    Err(_) => return err,
+                    _ => (),
+                };
+                for kind in EventKind::iter() {
+                    if parse_begin(&mut s, &kind.to_string()) {
+                        return Ok(Event {
+                            scope,
+                            kind,
+                            payload: match parse_payload(&mut s) {
+                                Ok(v) => v,
+                                Err(_) => return err,
+                            }
+                        });
+                    }
+                }
+                return err;
+            }
+        }
+        err
+    }
 }
 
 impl fmt::Display for Event {

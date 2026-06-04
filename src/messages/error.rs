@@ -3,6 +3,7 @@ use std::io;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
+use crate::messages::MessageParse;
 use crate::messages::utils::{invalid_input, write_vec};
 
 #[derive(EnumIter)]
@@ -52,18 +53,16 @@ impl Error {
             Self::SendFailed => "SEND_FAILED",
         }
     }
+}
 
-    pub fn from_string(mut str: String) -> Result<Error, io::Error> {
-        if !str.starts_with("ERR ") {
-            return Err(invalid_input("not an error"))
+impl MessageParse for Error {
+    fn from_string(s: String) -> Result<Error, io::Error> {
+        if !s.starts_with("ERR") {
+            return Err(invalid_input("not an error"));
         }
-        str = str.chars().skip(4).collect();
         for kind in Error::iter() {
-            let code = kind.code().to_string() + " ";
-            if str.starts_with(&code) {
-                if &str[code.len()..] == kind.message() {
-                    return Ok(kind);
-                }
+            if s == kind.to_string() {
+                return Ok(kind);
             }
         }
         Err(invalid_input("invalid error"))

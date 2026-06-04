@@ -11,6 +11,7 @@ pub use event::EventScope;
 
 mod message;
 pub use message::Message;
+pub use message::MessageParse;
 
 mod payload;
 pub use payload::Payload;

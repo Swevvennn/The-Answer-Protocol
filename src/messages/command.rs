@@ -3,8 +3,9 @@ use std::io::Error;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
+use crate::messages::MessageParse;
 use crate::messages::Payload;
-use crate::messages::utils::{invalid_input, write_vec};
+use crate::messages::utils::{invalid_input, parse_begin, parse_payload, write_vec};
 
 #[derive(EnumIter)]
 pub enum CommandKind {
@@ -58,24 +59,20 @@ pub struct Command {
     pub payload: Payload,
 }
 
-impl Command {
-    pub fn from_string(str: String) -> Result<Command, Error> {
+impl MessageParse for Command {
+    fn from_string(mut s: String) -> Result<Command, Error> {
         for kind in CommandKind::iter() {
-            let kind_str = kind.to_string();
-            if str.starts_with(&kind_str) {
-                if str.len() > kind_str.len() && let Some(c) = str.chars().nth(kind_str.len()) {
-                    if c != ' ' {
-                        return Err(invalid_input("invalid command"));
+            if parse_begin(&mut s, &kind.to_string()) {
+                return Ok(Command {
+                    kind,
+                    payload: match parse_payload(&mut s) {
+                        Ok(v) => v,
+                        Err(_) => return Err(invalid_input("invalid command")),
                     }
-                }
-                let payload = match Payload::from_string(str.chars().skip(kind_str.len() + 1).collect()) {
-                    Ok(v) => v,
-                    Err(_) => return Err(invalid_input("invalid command")),
-                };
-                return Ok(Command { kind, payload });
+                });
             }
         }
-        Err(invalid_input("unknown command"))
+        Err(invalid_input("invalid command"))
     }
 }
 
