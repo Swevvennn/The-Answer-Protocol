@@ -33,11 +33,11 @@ impl PayloadKind {
         matches!(self, Self::Json(_))
     }
 
-    pub fn string_from_string(s: String) -> Result<Self, std::io::Error> {
-        Ok(Self::String(Self::unescape(&s)))
+    pub fn string_from_string(s: &str) -> Result<Self, std::io::Error> {
+        Ok(Self::String(Self::unescape(s)))
     }
 
-    pub fn key_value_from_string(s: String) -> Result<Self, std::io::Error> {
+    pub fn key_value_from_string(s: &str) -> Result<Self, std::io::Error> {
         let parts: Vec<&str> = s.split("=").collect();
         if parts.len() != 2 {
             return Err(invalid_input("invalid key value"));
@@ -48,8 +48,8 @@ impl PayloadKind {
         })
     }
 
-    pub fn json_from_string(s: String) -> Result<Self, std::io::Error> {
-        match serde_json::from_str(&s) {
+    pub fn json_from_string(s: &str) -> Result<Self, std::io::Error> {
+        match serde_json::from_str(s) {
             Ok(v) => Ok(Self::Json(v)),
             Err(_) => Err(invalid_input("invalid json")),
         }
@@ -103,7 +103,7 @@ pub struct Payload {
 }
 
 impl MessageParse for Payload {
-    fn from_string(s: String) -> Result<Self, Error> {
+    fn from_string(s: &str) -> Result<Self, Error> {
         let mut payload = Self { args: Vec::new() };
         let mut escaped = false;
         let mut i: usize = 0;
@@ -136,11 +136,11 @@ impl MessageParse for Payload {
                 }
                 j += 1;
             }
-            let arg = chars[i..j].iter().collect();
+            let arg: String = chars[i..j].iter().collect();
             let kind = match t {
-                1 => PayloadKind::key_value_from_string(arg),
-                2 => PayloadKind::json_from_string(arg),
-                _ => PayloadKind::string_from_string(arg),
+                1 => PayloadKind::key_value_from_string(&arg),
+                2 => PayloadKind::json_from_string(&arg),
+                _ => PayloadKind::string_from_string(&arg),
             };
             payload.args.push(match kind {
                 Ok(v) => v,

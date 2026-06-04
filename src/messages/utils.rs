@@ -34,7 +34,7 @@ pub fn parse_payload(s: &mut String) -> Result<Payload, Error> {
         Err(_) => return Err(invalid_input("invalid payload")),
     };
     if space {
-        match Payload::from_string(s.clone()) {
+        match Payload::from_string(&s) {
             Ok(v) => Ok(v),
             Err(_) => Err(invalid_input("invalid payload")),
         }

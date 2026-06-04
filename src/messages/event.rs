@@ -58,25 +58,26 @@ pub struct Event {
 }
 
 impl MessageParse for Event {
-    fn from_string(mut s: String) -> Result<Event, Error> {
-        if parse_begin(&mut s, "EVT") {
+    fn from_string(s: &str) -> Result<Event, Error> {
+        let mut message = s.to_string();
+        if parse_begin(&mut message, "EVT") {
             return Err(invalid_input("not an event"));
         }
         let err = Err(invalid_input("invalid event"));
-        if matches!(skip_space(&mut s), Ok(false) | Err(_)) {
+        if matches!(skip_space(&mut message), Ok(false) | Err(_)) {
             return err;
         }
         for scope in EventScope::iter() {
-            if parse_begin(&mut s, &scope.to_string()) {
-                if matches!(skip_space(&mut s), Ok(false) | Err(_)) {
+            if parse_begin(&mut message, &scope.to_string()) {
+                if matches!(skip_space(&mut message), Ok(false) | Err(_)) {
                     return err;
                 }
                 for kind in EventKind::iter() {
-                    if parse_begin(&mut s, &kind.to_string()) {
+                    if parse_begin(&mut message, &kind.to_string()) {
                         return Ok(Event {
                             scope,
                             kind,
-                            payload: match parse_payload(&mut s) {
+                            payload: match parse_payload(&mut message) {
                                 Ok(v) => v,
                                 Err(_) => return err,
                             }
