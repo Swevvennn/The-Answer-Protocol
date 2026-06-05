@@ -1,11 +1,5 @@
-use serde::Serialize;
-use serde::de::DeserializeOwned;
-use serde_json::Value;
-use std::fmt;
-use std::io::Error;
-
 use crate::messages::MessageParse;
-use crate::messages::utils::{invalid_input, write_vec};
+use crate::messages::utils;
 
 pub enum PayloadKind {
     String(String),
@@ -13,11 +7,11 @@ pub enum PayloadKind {
         key: String,
         value: String
     },
-    Json(Value),
+    Json(serde_json::Value),
 }
 
 impl PayloadKind {
-    pub fn new<T: Serialize>(data: T) -> Self {
+    pub fn new<T: serde::Serialize>(data: T) -> Self {
         Self::Json(serde_json::to_value(data).unwrap())
     }
 
@@ -40,7 +34,7 @@ impl PayloadKind {
     pub fn key_value_from_string(s: &str) -> Result<Self, std::io::Error> {
         let parts: Vec<&str> = s.split("=").collect();
         if parts.len() != 2 {
-            return Err(invalid_input("invalid key value"));
+            return Err(utils::invalid_input("invalid key value"));
         }
         Ok(Self::KeyValue {
             key: Self::unescape(parts[0]),
@@ -51,11 +45,11 @@ impl PayloadKind {
     pub fn json_from_string(s: &str) -> Result<Self, std::io::Error> {
         match serde_json::from_str(s) {
             Ok(v) => Ok(Self::Json(v)),
-            Err(_) => Err(invalid_input("invalid json")),
+            Err(_) => Err(utils::invalid_input("invalid json")),
         }
     }
 
-    pub fn extract<T: DeserializeOwned>(&self) -> Result<T, Error> {
+    pub fn extract<T: serde::de::DeserializeOwned>(&self) -> Result<T, std::io::Error> {
         match self {
             Self::Json(json) => serde_json::from_value(json.clone()).map_err(|e| e.into()),
             _ => panic!("payload isn't a json"),
@@ -88,12 +82,12 @@ impl PayloadKind {
     }
 }
 
-impl fmt::Display for PayloadKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for PayloadKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::String(s) => write!(f, "{}", Self::escape(s)),
             Self::KeyValue { key, value } => write!(f, "{}={}", Self::escape(key), Self::escape(value)),
-            Self::Json(json) => write!(f, "{}", serde_json::to_string(&json).map_err(|_| fmt::Error)?),
+            Self::Json(json) => write!(f, "{}", serde_json::to_string(&json).map_err(|_| std::fmt::Error)?),
         }
     }
 }
@@ -103,7 +97,7 @@ pub struct Payload {
 }
 
 impl MessageParse for Payload {
-    fn from_string(s: &str) -> Result<Self, Error> {
+    fn from_string(s: &str) -> Result<Self, std::io::Error> {
         let mut payload = Self { args: Vec::new() };
         let mut escaped = false;
         let mut i: usize = 0;
@@ -144,7 +138,7 @@ impl MessageParse for Payload {
             };
             payload.args.push(match kind {
                 Ok(v) => v,
-                Err(_) => return Err(invalid_input("invalid payload")),
+                Err(_) => return Err(utils::invalid_input("invalid payload")),
             });
             i = j + 1;
         }
@@ -152,12 +146,12 @@ impl MessageParse for Payload {
     }
 }
 
-impl fmt::Display for Payload {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for Payload {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut v = vec![];
         for arg in &self.args {
             v.push(arg.to_string());
         }
-        write_vec(f, v)
+        utils::write_vec(f, v)
     }
 }

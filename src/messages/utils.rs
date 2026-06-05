@@ -1,15 +1,12 @@
-use std::fmt;
-use std::io::{Error, ErrorKind};
-
 use crate::messages::MessageParse;
 use crate::messages::Payload;
 
-pub fn write_vec(f: &mut fmt::Formatter<'_>, mut v: Vec<String>) -> fmt::Result {
+pub fn write_vec(f: &mut std::fmt::Formatter<'_>, mut v: Vec<String>) -> std::fmt::Result {
     v.retain(|s| !s.is_empty());
     write!(f, "{}", v.join(" "))
 }
 
-pub fn skip_space(s: &mut String) -> Result<bool, Error> {
+pub fn skip_space(s: &mut String) -> Result<bool, std::io::Error> {
     if parse_begin(s, " ") {
         if s.is_empty() {
             return Err(invalid_input(""));
@@ -28,7 +25,7 @@ pub fn parse_begin(s: &mut String, prefix: &str) -> bool {
     }
 }
 
-pub fn parse_payload(s: &mut String) -> Result<Payload, Error> {
+pub fn parse_payload(s: &mut String) -> Result<Payload, std::io::Error> {
     let space = match skip_space(s) {
         Ok(v) => v,
         Err(_) => return Err(invalid_input("invalid payload")),
@@ -43,9 +40,9 @@ pub fn parse_payload(s: &mut String) -> Result<Payload, Error> {
     }
 }
 
-pub fn invalid_input(s: &str) -> Error {
-    Error::new(
-        ErrorKind::InvalidInput,
+pub fn invalid_input(s: &str) -> std::io::Error {
+    std::io::Error::new(
+        std::io::ErrorKind::InvalidInput,
         s,
     )
 }
