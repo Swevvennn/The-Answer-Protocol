@@ -1,7 +1,5 @@
 use futures::StreamExt;
 
-use crate::cli::State;
-
 pub type KeyCode = crossterm::event::KeyCode;
 pub type KeyModifiers = crossterm::event::KeyModifiers;
 
@@ -41,7 +39,18 @@ impl Terminal {
         Ok(())
     }
 
-    pub async fn read(&mut self, state: &mut State) -> Option<TerminalEvent> {
+    pub fn update<T, F: FnOnce(&T, &mut ratatui::Frame)>(&mut self, obj: &T, ui: F) {
+        match self.tui.draw(|frame| {
+            ui(
+                obj,
+                frame,
+            );
+        }) {
+            _ => (),
+        }
+    }
+
+    pub async fn read(&mut self, input: &mut crate::cli::Input) -> Option<TerminalEvent> {
         match self.events.next().await {
             Some(Ok(event)) => {
                 match event {
@@ -49,13 +58,13 @@ impl Terminal {
                         match (key.code, key.modifiers) {
                             (KeyCode::Char('c'), KeyModifiers::CONTROL) => return Some(TerminalEvent::Interrupted),
                             (KeyCode::Char(c), _) => {
-                                state.input.push(c);
+                                input.input.push(c);
                                 return Some(TerminalEvent::Char(c))
                             }
                             (KeyCode::Backspace, _) => {
-                                state.input.pop();
+                                input.input.pop();
                             }
-                            (KeyCode::Enter, _) if !state.input.is_empty() => return Some(TerminalEvent::Validate),
+                            (KeyCode::Enter, _) if !input.input.is_empty() => return Some(TerminalEvent::Validate),
                             (_, _) => (),
                         };
                         Some(TerminalEvent::Other {

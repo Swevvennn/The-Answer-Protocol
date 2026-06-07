@@ -11,11 +11,16 @@ pub enum PayloadKind {
     Json(serde_json::Value),
 }
 
-pub enum PayloadPattern {
-    String(Option<String>),
-    KeyValue(Option<String>),
+pub enum PayloadPattern<'a> {
+    String(Option<&'a str>),
+    KeyValue(Option<&'a str>),
     Json,
 }
+
+pub const GREETING_PATTERN: &[PayloadPattern<'static>] = &[
+    PayloadPattern::String(Some("hello")),
+    PayloadPattern::KeyValue(Some("proto")),
+];
 
 impl PayloadKind {
     pub fn new<T: serde::Serialize>(data: T) -> Self {
