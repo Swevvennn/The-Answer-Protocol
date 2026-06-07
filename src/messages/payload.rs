@@ -1,6 +1,7 @@
 use crate::messages::MessageParse;
 use crate::messages::utils;
 
+#[derive(Clone)]
 pub enum PayloadKind {
     String(String),
     KeyValue {
@@ -8,6 +9,12 @@ pub enum PayloadKind {
         value: String
     },
     Json(serde_json::Value),
+}
+
+pub enum PayloadPattern {
+    String(Option<String>),
+    KeyValue(Option<String>),
+    Json,
 }
 
 impl PayloadKind {
@@ -56,6 +63,15 @@ impl PayloadKind {
         }
     }
 
+    pub fn matches(&self, pattern: &PayloadPattern) -> bool {
+        match (self, pattern) {
+            (Self::String(s), PayloadPattern::String(p)) => if let Some(p) = p { s == p } else { true },
+            (Self::KeyValue { key, value: _ }, PayloadPattern::KeyValue(p)) => if let Some(p) = p { key == p } else { true },
+            (Self::Json(_), PayloadPattern::Json) => true,
+            _ => false,
+        }
+    }
+
     fn escape(s: &str) -> String {
         let mut res = String::new();
         for char in s.chars() {
@@ -94,6 +110,26 @@ impl std::fmt::Display for PayloadKind {
 
 pub struct Payload {
     pub args: Vec<PayloadKind>,
+}
+
+impl Payload {
+    pub fn new(args: &[PayloadKind]) -> Self {
+        Self {
+            args: args.to_vec(),
+        }
+    }
+
+    pub fn matches(&self, args: &[PayloadPattern]) -> bool {
+        if self.args.len() != args.len() {
+            return false;
+        }
+        for i in 0..self.args.len() {
+            if !self.args[i].matches(&args[i]) {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 impl MessageParse for Payload {

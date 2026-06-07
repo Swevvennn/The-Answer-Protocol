@@ -26,7 +26,7 @@ impl Server {
                     let server = std::sync::Arc::clone(&self);
                     tokio::spawn(async move {
                         server
-                            .handle_client(Client::new(
+                            .handle_client(Client::from_connection(
                                 addr,
                                 stream
                             ))
@@ -40,12 +40,13 @@ impl Server {
 
     async fn handle_client(&self, mut client: Client) {
         println!("New client {}", client.addr);
+        client.write("OK hello proto=1\n").await;
         loop {
             match client.read().await {
                 Ok(None) => (),
                 Ok(Some(v)) => {
                     println!("Message from {}: {}", client.addr, v);
-                    client.write("OK\n").await;
+                    client.write("OK connected\n").await;
                 },
                 Err(e) => {
                     eprintln!("Client {} error: {}", client.addr, e);

@@ -8,20 +8,17 @@ pub struct Player {
 pub type SharedPlayer = std::sync::Arc<tokio::sync::Mutex<Player>>;
 
 impl Player {
-    pub fn new(client: Client, username: &str) -> Self {
+    pub fn new() -> Self {
         Self {
-            client,
-            username: username.to_string(),
+            client: Client::new(),
+            username: String::new(),
         }
     }
 
-    pub fn shared(client: Client, username: &str) -> SharedPlayer {
+    pub fn shared(player: Player) -> SharedPlayer {
         std::sync::Arc::new(
             tokio::sync::Mutex::new(
-                Player::new(
-                    client,
-                    username,
-                )
+                player
             )
         )
     }

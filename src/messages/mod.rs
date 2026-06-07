@@ -1,5 +1,6 @@
 mod command;
 pub use command::Command;
+pub use command::CommandKind;
 
 mod error;
 pub use error::Error;
@@ -16,6 +17,7 @@ pub use message::MessageParse;
 mod payload;
 pub use payload::Payload;
 pub use payload::PayloadKind;
+pub use payload::PayloadPattern;
 
 mod response;
 pub use response::Response;

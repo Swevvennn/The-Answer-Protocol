@@ -1,6 +1,6 @@
 use futures::StreamExt;
 
-use crate::cli::SharedState;
+use crate::cli::State;
 
 pub type KeyCode = crossterm::event::KeyCode;
 pub type KeyModifiers = crossterm::event::KeyModifiers;
@@ -18,7 +18,7 @@ pub enum TerminalEvent {
 
 pub struct Terminal {
     pub input: String,
-    tui: ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>,
+    pub tui: ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>,
     events: crossterm::event::EventStream,
 }
 
@@ -41,13 +41,7 @@ impl Terminal {
         Ok(())
     }
 
-    pub fn update<F: FnOnce(&mut ratatui::Frame)>(&mut self, callback: F) {
-        match self.tui.draw(callback) {
-            _ => (),
-        }
-    }
-
-    pub async fn read(&mut self, state: &mut SharedState) -> Option<TerminalEvent> {
+    pub async fn read(&mut self, state: &mut State) -> Option<TerminalEvent> {
         match self.events.next().await {
             Some(Ok(event)) => {
                 match event {
@@ -55,13 +49,13 @@ impl Terminal {
                         match (key.code, key.modifiers) {
                             (KeyCode::Char('c'), KeyModifiers::CONTROL) => return Some(TerminalEvent::Interrupted),
                             (KeyCode::Char(c), _) => {
-                                state.lock().await.input.push(c);
+                                state.input.push(c);
                                 return Some(TerminalEvent::Char(c))
                             }
                             (KeyCode::Backspace, _) => {
-                                state.lock().await.input.pop();
+                                state.input.pop();
                             }
-                            (KeyCode::Enter, _) => return Some(TerminalEvent::Validate),
+                            (KeyCode::Enter, _) if !state.input.is_empty() => return Some(TerminalEvent::Validate),
                             (_, _) => (),
                         };
                         Some(TerminalEvent::Other {
