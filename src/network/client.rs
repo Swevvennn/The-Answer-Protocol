@@ -44,8 +44,8 @@ impl Client {
     }
 
     pub fn close(&mut self) {
-        self.stream = None;
         self.state = ClientState::Terminated;
+        self.stream = None;
     }
 
     pub async fn connect(&mut self) -> Result<(), std::io::Error> {
@@ -56,7 +56,7 @@ impl Client {
             Ok(v) => Some(v),
             Err(e) => return Err(std::io::Error::new(
                 e.kind(),
-                format!("connection to {} failed: {}", &self.addr, e),
+                format!("connection to '{}' failed: {}", &self.addr, e),
             )),
         };
         self.state = ClientState::Connected;
@@ -91,8 +91,7 @@ impl Client {
             } {
                 Ok(v) => Ok(v),
                 Err(e) => {
-                    self.state = ClientState::Terminated;
-                    self.stream = None;
+                    self.close();
                     Err(e)
                 }
             }
@@ -105,8 +104,7 @@ impl Client {
             Some(stream) => match stream.write_all(s.as_bytes()).await {
                 Ok(_) => Ok(()),
                 Err(e) => {
-                    self.state = ClientState::Terminated;
-                    self.stream = None;
+                    self.close();
                     Err(std::io::Error::new(
                         std::io::ErrorKind::Other,
                         format!("write failed: {e}"),

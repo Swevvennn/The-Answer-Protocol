@@ -1,20 +1,12 @@
-mod cli;
-pub use cli::Cli;
-pub use cli::CliStage;
+mod input;
+pub use input::Input;
 
-mod message;
-pub use message::Message;
-
-pub mod raw;
-
-mod state;
-pub use state::State;
+mod messages;
+pub use messages::Message;
+pub use messages::Messages;
 
 mod terminal;
 pub use terminal::KeyCode;
 pub use terminal::KeyModifiers;
 pub use terminal::Terminal;
 pub use terminal::TerminalEvent;
-
-mod waiter;
-pub use waiter::Waiter;

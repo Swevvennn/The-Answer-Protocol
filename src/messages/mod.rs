@@ -15,6 +15,7 @@ pub use message::Message;
 pub use message::MessageParse;
 
 mod payload;
+pub use payload::GREETING_PATTERN;
 pub use payload::Payload;
 pub use payload::PayloadKind;
 pub use payload::PayloadPattern;
