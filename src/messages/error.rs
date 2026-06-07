@@ -1,12 +1,9 @@
-use std::fmt;
-use std::io;
 use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
 
 use crate::messages::MessageParse;
-use crate::messages::utils::{invalid_input, write_vec};
+use crate::messages::utils;
 
-#[derive(EnumIter)]
+#[derive(strum_macros::EnumIter)]
 pub enum Error {
     NameInUse,
     NoExit,
@@ -56,22 +53,22 @@ impl Error {
 }
 
 impl MessageParse for Error {
-    fn from_string(s: &str) -> Result<Error, io::Error> {
+    fn from_string(s: &str) -> Result<Error, std::io::Error> {
         if !s.starts_with("ERR") {
-            return Err(invalid_input("not an error"));
+            return Err(utils::invalid_input("not an error"));
         }
         for kind in Error::iter() {
             if s.to_string() == kind.to_string() {
                 return Ok(kind);
             }
         }
-        Err(invalid_input("invalid error"))
+        Err(utils::invalid_input("invalid error"))
     }
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write_vec(f, vec![
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        utils::write_vec(f, vec![
             "ERR".to_string(),
             self.code().to_string(),
             self.message().to_string(),

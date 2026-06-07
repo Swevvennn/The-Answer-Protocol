@@ -1,13 +1,10 @@
-use std::fmt;
-use std::io::Error;
 use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
 
 use crate::messages::MessageParse;
 use crate::messages::Payload;
-use crate::messages::utils::{invalid_input, parse_begin, parse_payload, skip_space, write_vec};
+use crate::messages::utils;
 
-#[derive(EnumIter)]
+#[derive(strum_macros::EnumIter)]
 pub enum EventScope {
     Global,
     Group,
@@ -15,8 +12,8 @@ pub enum EventScope {
     Room,
 }
 
-impl fmt::Display for EventScope {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for EventScope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Global => write!(f, "GLOBAL"),
             Self::Group => write!(f, "GROUP"),
@@ -26,7 +23,7 @@ impl fmt::Display for EventScope {
     }
 }
 
-#[derive(EnumIter)]
+#[derive(strum_macros::EnumIter)]
 pub enum EventKind {
     Chat,
     Invite,
@@ -37,8 +34,8 @@ pub enum EventKind {
     PresenceLeave,
 }
 
-impl fmt::Display for EventKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for EventKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Chat => write!(f, "CHAT"),
             Self::Invite => write!(f, "INVITE"),
@@ -58,26 +55,26 @@ pub struct Event {
 }
 
 impl MessageParse for Event {
-    fn from_string(s: &str) -> Result<Event, Error> {
+    fn from_string(s: &str) -> Result<Event, std::io::Error> {
         let mut message = s.to_string();
-        if parse_begin(&mut message, "EVT") {
-            return Err(invalid_input("not an event"));
+        if utils::parse_begin(&mut message, "EVT") {
+            return Err(utils::invalid_input("not an event"));
         }
-        let err = Err(invalid_input("invalid event"));
-        if matches!(skip_space(&mut message), Ok(false) | Err(_)) {
+        let err = Err(utils::invalid_input("invalid event"));
+        if matches!(utils::skip_space(&mut message), Ok(false) | Err(_)) {
             return err;
         }
         for scope in EventScope::iter() {
-            if parse_begin(&mut message, &scope.to_string()) {
-                if matches!(skip_space(&mut message), Ok(false) | Err(_)) {
+            if utils::parse_begin(&mut message, &scope.to_string()) {
+                if matches!(utils::skip_space(&mut message), Ok(false) | Err(_)) {
                     return err;
                 }
                 for kind in EventKind::iter() {
-                    if parse_begin(&mut message, &kind.to_string()) {
+                    if utils::parse_begin(&mut message, &kind.to_string()) {
                         return Ok(Event {
                             scope,
                             kind,
-                            payload: match parse_payload(&mut message) {
+                            payload: match utils::parse_payload(&mut message) {
                                 Ok(v) => v,
                                 Err(_) => return err,
                             }
@@ -91,9 +88,9 @@ impl MessageParse for Event {
     }
 }
 
-impl fmt::Display for Event {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write_vec(f, vec![
+impl std::fmt::Display for Event {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        utils::write_vec(f, vec![
             "EVT".to_string(),
             self.scope.to_string(),
             self.kind.to_string(),

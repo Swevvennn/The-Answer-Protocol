@@ -1,11 +1,8 @@
-use::std::fmt;
-use std::io;
-
 use crate::messages::{Command, Error, Event, Response};
-use crate::messages::utils::invalid_input;
+use crate::messages::utils;
 
 pub trait MessageParse: Sized {
-    fn from_string(s: &str) -> Result<Self, io::Error>;
+    fn from_string(s: &str) -> Result<Self, std::io::Error>;
 }
 
 pub enum Message {
@@ -16,7 +13,7 @@ pub enum Message {
 }
 
 impl MessageParse for Message {
-    fn from_string(s: &str) -> Result<Message, io::Error> {
+    fn from_string(s: &str) -> Result<Message, std::io::Error> {
         if let Ok(v) = Command::from_string(s) {
             return Ok(Message::Command(v));
         }
@@ -29,12 +26,12 @@ impl MessageParse for Message {
         if let Ok(v) = Response::from_string(s) {
             return Ok(Message::Response(v));
         }
-        Err(invalid_input("invalid message"))
+        Err(utils::invalid_input("invalid message"))
     }
 }
 
-impl fmt::Display for Message {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Command(v) => write!(f, "{v}"),
             Self::Error(v) => write!(f, "{v}"),

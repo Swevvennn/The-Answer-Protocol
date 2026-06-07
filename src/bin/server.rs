@@ -2,7 +2,7 @@ use tap::network::Server;
 
 #[tokio::main]
 async fn main() {
-    let server = match Server::new("127.0.0.1:7878").await {
+    let server = match Server::new("127.0.0.1:7373").await {
         Ok(v) => v,
         Err(e) => return eprintln!("{e}"),
     };
