@@ -43,7 +43,7 @@ pub async fn run<F: AsyncFn(&mut Cli), G: AsyncFn(&mut Cli, messages::Message)>(
             Some(action) => match action {
                 Action::Connection(r) => match r {
                     Ok(_) => {
-                        cli.state.messages.push(Message::Head(format!(
+                        cli.state.log(Message::Head(format!(
                             "Connected to {}",
                             cli.player.client.addr,
                         )));
@@ -51,7 +51,7 @@ pub async fn run<F: AsyncFn(&mut Cli), G: AsyncFn(&mut Cli, messages::Message)>(
                         cli.waiter.begin();
                     }
                     Err(e) => {
-                        cli.state.messages.push(Message::error(e));
+                        cli.state.log(Message::error(e));
                         cli.stage = CliStage::EnteringAddress;
                         cli.waiter.end();
                     }
@@ -62,10 +62,10 @@ pub async fn run<F: AsyncFn(&mut Cli), G: AsyncFn(&mut Cli, messages::Message)>(
                         Some(message) => receive(&mut cli, message).await,
                         None => (),
                     }
-                    Err(e) => cli.state.messages.push(Message::error(e)),
+                    Err(e) => cli.state.log(Message::error(e)),
                 }
                 Action::Timeout => {
-                    cli.state.messages.push(Message::Error("the server is not responding".to_string()));
+                    cli.state.log(Message::Error("the server is not responding".to_string()));
                     cli.player.client.close();
                 }
                 Action::Validate => validate(&mut cli).await,
@@ -73,7 +73,7 @@ pub async fn run<F: AsyncFn(&mut Cli), G: AsyncFn(&mut Cli, messages::Message)>(
             None => (),
         };
         if matches!(cli.player.client.state, ClientState::Terminated) {
-            cli.state.messages.push(Message::Head(format!(
+            cli.state.log(Message::Head(format!(
                 "Connection to {} closed",
                 cli.player.client.addr,
             )));
@@ -119,12 +119,7 @@ fn ui(state: &State, player: &Player, frame: &mut ratatui::Frame) {
                 Block::default()
                     .borders(Borders::ALL)
             )
-            .scroll({
-                let height = chunks[1].height.saturating_sub(2) as usize;
-                let total_lines = state.messages.len();
-                let offset = total_lines.saturating_sub(height);
-                (offset as u16, 0)
-            }),
+            .scroll((messages.len().saturating_sub(chunks[1].height.saturating_sub(2) as usize) as u16, 0)),
         chunks[1],
     );
     frame.render_widget(

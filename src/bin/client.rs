@@ -4,7 +4,7 @@ async fn validate(cli: &mut tap::cli::Cli) {
     match &cli.stage {
         tap::cli::CliStage::EnteringAddress => {
             cli.player.client.addr = cli.state.consume();
-            cli.state.messages.push(tap::cli::Message::Info(format!(
+            cli.state.log(tap::cli::Message::Info(format!(
                 "attempting to connect to '{}'",
                 cli.player.client.addr,
             )));
@@ -13,7 +13,7 @@ async fn validate(cli: &mut tap::cli::Cli) {
         }
         tap::cli::CliStage::EnteringUsername => {
             cli.player.username = cli.state.consume();
-            cli.state.messages.push(tap::cli::Message::Info(format!(
+            cli.state.log(tap::cli::Message::Info(format!(
                 "try to authenticate with username '{}'",
                 cli.player.username,
             )));
@@ -27,21 +27,21 @@ async fn validate(cli: &mut tap::cli::Cli) {
                     cli.stage = tap::cli::CliStage::WaitingAuth;
                     cli.waiter.begin();
                 },
-                Err(e) => cli.state.messages.push(tap::cli::Message::error(e)),
+                Err(e) => cli.state.log(tap::cli::Message::error(e)),
             };
         }
         tap::cli::CliStage::EnteringCommand => {
             let input = cli.state.consume();
-            cli.state.messages.push(tap::cli::Message::Outgoing(input.clone()));
+            cli.state.log(tap::cli::Message::Outgoing(input.clone()));
             match tap::messages::Message::from_string(&input) {
                 Ok(message) => match cli.player.client.write_message(&message).await {
                     Ok(_) => {
                         cli.stage = tap::cli::CliStage::WaitingResponse;
                         cli.waiter.begin();
                     },
-                    Err(e) => cli.state.messages.push(tap::cli::Message::error(e)),
+                    Err(e) => cli.state.log(tap::cli::Message::error(e)),
                 },
-                Err(_) => cli.state.messages.push(tap::cli::Message::Error("invalid command".to_string())),
+                Err(_) => cli.state.log(tap::cli::Message::Error("invalid command".to_string())),
             }
         }
         _ => (),
@@ -49,7 +49,7 @@ async fn validate(cli: &mut tap::cli::Cli) {
 }
 
 async fn receive(cli: &mut tap::cli::Cli, message: tap::messages::Message) {
-    match match (&cli.stage, &message) {
+    if match (&cli.stage, &message) {
         (tap::cli::CliStage::WaitingGreeting, tap::messages::Message::Response(message)) if message.payload.matches(&[
             tap::messages::PayloadPattern::String(Some("hello".to_string())),
             tap::messages::PayloadPattern::KeyValue(Some("proto".to_string())),
@@ -90,14 +90,11 @@ async fn receive(cli: &mut tap::cli::Cli, message: tap::messages::Message) {
         }
         (_, _) => false,
     } {
-        true => {
-            cli.state.messages.push(tap::cli::Message::Incoming(message.to_string()));
-            cli.waiter.end();
-            return;
-        }
-        false => (),
+        cli.state.log(tap::cli::Message::Incoming(message.to_string()));
+        cli.waiter.end();
+        return;
     };
-    cli.state.messages.push(tap::cli::Message::Error(format!("unexpected message received from the server: {message}")));
+    cli.state.log(tap::cli::Message::Error(format!("unexpected message received from the server: {message}")));
     cli.player.client.close();
     cli.waiter.end();
 }
