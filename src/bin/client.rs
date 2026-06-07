@@ -81,7 +81,7 @@ async fn main() {
                 chunks[2],
             );
         });
-        match match tokio::select! {
+        let action = tokio::select! {
             _ = waiter.wait() => Some(Action::Timeout),
             event = terminal.read(&mut input) => {
                 match event {
@@ -103,7 +103,9 @@ async fn main() {
                     Some(Action::Read(player.client.read().await))
                 }
             } => action,
-        } {
+        };
+        let mut e: Result<(), std::io::Error> = Ok(());
+        match action {
             Some(action) => match action {
                 Action::Connection(r) => match r {
                     Ok(_) => {
@@ -113,16 +115,14 @@ async fn main() {
                         )));
                         stage = Stage::WaitingGreeting;
                         waiter.begin();
-                        Ok(())
                     }
                     Err(e) => {
                         messages.log(tap::cli::Message::error(e));
                         stage = Stage::EnteringAddress;
                         waiter.end();
-                        Ok(())
                     }
                 }
-                Action::Interrupt => Err(std::io::Error::other("Interrupted")),
+                Action::Interrupt => e = Err(std::io::Error::other("Interrupted")),
                 Action::Read(r) => match r {
                     Ok(message) => match message {
                         Some(message) => {
@@ -167,26 +167,24 @@ async fn main() {
                                 }
                                 (_, _) => false,
                             } {
-                                messages.log(tap::cli::Message::Incoming(message.to_string()));
-                                waiter.end();
-                                return;
-                            };
-                            messages.log(tap::cli::Message::Error(format!("unexpected message received from the server: {message}")));
-                            player.client.close();
+                                messages.log(tap::cli::Message::Network {
+                                    from: "S".to_string(),
+                                    to: "C".to_string(),
+                                    message: message.to_string(),
+                                });
+                            } else {
+                                messages.log(tap::cli::Message::Error(format!("unexpected message received from the server: {message}")));
+                                player.client.close();
+                            }
                             waiter.end();
-                            Ok(())
                         },
-                        None => Ok(()),
+                        None => (),
                     }
-                    Err(e) => {
-                        messages.log(tap::cli::Message::error(e));
-                        Ok(())
-                    },
+                    Err(e) => messages.log(tap::cli::Message::error(e)),
                 }
                 Action::Timeout => {
                     messages.log(tap::cli::Message::Error("the server is not responding".to_string()));
                     player.client.close();
-                    Ok(())
                 }
                 Action::Validate => {
                     match &stage {
@@ -220,7 +218,11 @@ async fn main() {
                         }
                         Stage::EnteringCommand => {
                             let input = input.consume();
-                            messages.log(tap::cli::Message::Outgoing(input.clone()));
+                            messages.log(tap::cli::Message::Network {
+                                from: "C".to_string(),
+                                to: "S".to_string(),
+                                message: input.clone(),
+                            });
                             match tap::messages::Message::from_string(&input) {
                                 Ok(message) => match player.client.write_message(&message).await {
                                     Ok(_) => {
@@ -234,11 +236,11 @@ async fn main() {
                         }
                         _ => (),
                     };
-                    Ok(())
                 },
             }
-            None => Ok(()),
-        } {
+            None => (),
+        };
+        match e {
             Err(e) => {
                 match terminal.close() {
                     Ok(_) => (),
