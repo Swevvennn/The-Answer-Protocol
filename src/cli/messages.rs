@@ -44,7 +44,7 @@ impl Messages {
     }
 
     pub fn log(&mut self, message: Message) {
-        if let Some(last) = self.messages.last() && (!matches!(last, Message::Head(_)) || !matches!(last, Message::Head(_))) {
+        if let Some(last) = self.messages.last() && !(matches!(last, Message::Head(_)) || matches!(message, Message::Head(_))) {
             let last_is_local = matches!(last, Message::Error(_) | Message::Info(_));
             let new_is_local = matches!(message, Message::Error(_) | Message::Info(_));
             if last_is_local && !new_is_local || !last_is_local && new_is_local {

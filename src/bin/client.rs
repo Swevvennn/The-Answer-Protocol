@@ -256,6 +256,7 @@ async fn main() {
             )));
             player.client.state = tap::network::ClientState::Disconnected;
             stage = Stage::EnteringAddress;
+            waiter.end();
         }
     }
 }
