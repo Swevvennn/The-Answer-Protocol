@@ -4,7 +4,6 @@ pub type KeyCode = crossterm::event::KeyCode;
 pub type KeyModifiers = crossterm::event::KeyModifiers;
 
 pub enum TerminalEvent {
-    Char(char),
     Input,
     Interrupted,
     Other {
@@ -39,13 +38,8 @@ impl Terminal {
         Ok(())
     }
 
-    pub fn update<T, F: FnOnce(&T, &mut ratatui::Frame)>(&mut self, obj: &T, ui: F) {
-        match self.tui.draw(|frame| {
-            ui(
-                obj,
-                frame,
-            );
-        }) {
+    pub fn update<F: FnOnce(&mut ratatui::Frame)>(&mut self, ui: F) {
+        match self.tui.draw(ui) {
             _ => (),
         }
     }
@@ -56,21 +50,21 @@ impl Terminal {
                 match event {
                     crossterm::event::Event::Key(key) if key.kind == crossterm::event::KeyEventKind::Press => {
                         match (key.code, key.modifiers) {
-                            (KeyCode::Char('c'), KeyModifiers::CONTROL) => return Some(TerminalEvent::Interrupted),
+                            (KeyCode::Char('c'), KeyModifiers::CONTROL) => Some(TerminalEvent::Interrupted),
                             (KeyCode::Char(c), _) => {
                                 input.input.push(c);
-                                return Some(TerminalEvent::Char(c))
+                                Some(TerminalEvent::Input)
                             }
                             (KeyCode::Backspace, _) => {
                                 input.input.pop();
+                                Some(TerminalEvent::Input)
                             }
-                            (KeyCode::Enter, _) if !input.input.is_empty() => return Some(TerminalEvent::Validate),
-                            (_, _) => (),
-                        };
-                        Some(TerminalEvent::Other {
-                            code: key.code,
-                            modifiers: key.modifiers,
-                        })
+                            (KeyCode::Enter, _) if !input.input.is_empty() => Some(TerminalEvent::Validate),
+                            (_, _) => Some(TerminalEvent::Other {
+                                code: key.code,
+                                modifiers: key.modifiers,
+                            }),
+                        }
                     }
                     _ => None,
                 }

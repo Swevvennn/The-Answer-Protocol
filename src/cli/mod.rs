@@ -1,3 +1,8 @@
+mod cli;
+pub use cli::Action;
+pub use cli::run;
+pub use cli::Wrapper;
+
 mod input;
 pub use input::Input;
 

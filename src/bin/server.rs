@@ -1,135 +1,139 @@
-struct UiUtils<'a> {
-    server: &'a tap::network::Server,
-    input: &'a tap::cli::Input,
-    messages: &'a tap::cli::Messages,
+enum OtherAction {
+    Bind(Result<(), std::io::Error>),
+    Client(Result<tap::network::Client, std::io::Error>),
 }
 
-fn ui(utils: &UiUtils, frame: &mut ratatui::Frame) {
-    let chunks = ratatui::layout::Layout::default()
-        .direction(ratatui::layout::Direction::Vertical)
-        .constraints([
-            ratatui::layout::Constraint::Length(4),
-            ratatui::layout::Constraint::Min(1),
-            ratatui::layout::Constraint::Length(3),
-        ])
-        .split(frame.area());
-    frame.render_widget(
-        ratatui::widgets::Paragraph::new(
-            format!(
-                "Listening at: {} ({})\nClients number: {}",
-                if utils.server.addr.is_empty() { "?" } else { &utils.server.addr },
-                utils.server.state,
-                "?",
-            )
-        )
-            .block(
-                ratatui::widgets::Block::default()
-                    .borders(ratatui::widgets::Borders::ALL)
-            ),
-        chunks[0],
-    );
-    frame.render_widget(
-        ratatui::widgets::Paragraph::new(utils.messages.to_string())
-            .block(
-                ratatui::widgets::Block::default()
-                    .borders(ratatui::widgets::Borders::ALL)
-            )
-            .scroll((utils.messages.messages.len().saturating_sub(chunks[1].height.saturating_sub(2) as usize) as u16, 0)),
-        chunks[1],
-    );
-    frame.render_widget(
-        ratatui::widgets::Paragraph::new(format!("> {}", utils.input))
-            .block(
-                ratatui::widgets::Block::default()
-                    .title(
-                        match utils.server.state {
-                            tap::network::ServerState::Binded => "Press Ctrl + C to exit",
-                            _ => "Enter a binding address (<IPv4>:<port>)",
-                        }
-                    )
-                    .borders(ratatui::widgets::Borders::ALL),
-            ), 
-        chunks[2],
-    );
+type Action = tap::cli::Action<OtherAction>;
+
+struct Cli {
+    input: tap::cli::Input,
+    messages: tap::utils::Shared<tap::cli::Messages>,
+    server: tap::network::Server,
+    sender: tap::utils::Shared<tokio::sync::watch::Sender<()>>,
+    receiver: tokio::sync::watch::Receiver<()>,
 }
 
-#[tokio::main]
-async fn main() {
-    enum Action {
-        Bind(Result<(), std::io::Error>),
-        Client(Result<tap::network::Client, std::io::Error>),
-        Interrupt,
-        Validate,
-    }
-    let mut terminal = match tap::cli::Terminal::new() {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("Error: failed to create terminal ui: {e}");
-            return;
+impl tap::cli::Wrapper for Cli {
+    type OtherAction = OtherAction;
+
+    fn new() -> Self {
+        let (tx, rx) = tokio::sync::watch::channel(());
+        Self {
+            input: tap::cli::Input::new(),
+            messages: tap::utils::Shared::new(tap::cli::Messages::new()),
+            server: tap::network::Server::new(),
+            sender: tap::utils::Shared::new(tx),
+            receiver: rx,
         }
-    };
-    let mut input = tap::cli::Input::new();
-    let messages = tap::utils::Shared::new(tap::cli::Messages::new());
-    let (tx, mut rx) = tokio::sync::watch::channel(());
-    let tx = tap::utils::Shared::new(tx);
-    let mut server = tap::network::Server::new();
-    loop {
-        terminal.update(
-            &UiUtils {
-                server: &server,
-                input: &input,
-                messages: &*messages.lock().await,
-            },
-            ui,
-        );
-        let action = tokio::select! {
-            _ = rx.changed() => None,
-            event = terminal.read(&mut input) => {
-                match event {
-                    Some(event) => match event {
-                        tap::cli::TerminalEvent::Interrupted => Some(Action::Interrupt),
-                        tap::cli::TerminalEvent::Validate => Some(Action::Validate),
+    }
+
+    fn draw(&self, terminal: &mut tap::cli::Terminal) -> impl std::future::Future<Output = ()> + Send {
+        async {
+            let messages = self.messages.lock().await;
+            terminal.update(|frame| {
+                let chunks = ratatui::layout::Layout::default()
+                    .direction(ratatui::layout::Direction::Vertical)
+                    .constraints([
+                        ratatui::layout::Constraint::Length(4),
+                        ratatui::layout::Constraint::Min(1),
+                        ratatui::layout::Constraint::Length(3),
+                    ])
+                    .split(frame.area());
+                frame.render_widget(
+                    ratatui::widgets::Paragraph::new(
+                        format!(
+                            "Listening at: {} ({})\nClients number: {}",
+                            if self.server.addr.is_empty() { "?" } else { &self.server.addr },
+                            self.server.state,
+                            "?",
+                        )
+                    )
+                        .block(
+                            ratatui::widgets::Block::default()
+                                .borders(ratatui::widgets::Borders::ALL)
+                        ),
+                    chunks[0],
+                );
+                frame.render_widget(
+                    ratatui::widgets::Paragraph::new(messages.to_string())
+                        .block(
+                            ratatui::widgets::Block::default()
+                                .borders(ratatui::widgets::Borders::ALL)
+                        )
+                        .scroll((messages.messages.len().saturating_sub(chunks[1].height.saturating_sub(2) as usize) as u16, 0)),
+                    chunks[1],
+                );
+                frame.render_widget(
+                    ratatui::widgets::Paragraph::new(format!("> {}", self.input))
+                        .block(
+                            ratatui::widgets::Block::default()
+                                .title(
+                                    match self.server.state {
+                                        tap::network::ServerState::Binded => "Press Ctrl + C to exit",
+                                        _ => "Enter a binding address (<IPv4>:<port>)",
+                                    }
+                                )
+                                .borders(ratatui::widgets::Borders::ALL),
+                        ), 
+                    chunks[2],
+                );
+            });
+        }
+    }
+
+    fn select(&mut self, terminal: &mut tap::cli::Terminal) -> impl std::future::Future<Output = Option<Action>> + Send {
+        async {
+            tokio::select! {
+                _ = self.receiver.changed() => None,
+                event = terminal.read(&mut self.input) => {
+                    match event {
+                        Some(event) => match event {
+                            tap::cli::TerminalEvent::Interrupted => Some(Action::Interrupt),
+                            tap::cli::TerminalEvent::Validate => Some(Action::Validate),
+                            _ => None,
+                        }
                         _ => None,
                     }
-                    _ => None,
                 }
+                action = async {
+                    if matches!(self.server.state, tap::network::ServerState::Binded) {
+                        Some(Action::Other(OtherAction::Client(self.server.accept().await)))
+                    } else if self.server.addr.is_empty() {
+                        tap::utils::Waiter::block().await;
+                        None
+                    } else {
+                        Some(Action::Other(OtherAction::Bind(self.server.bind().await)))
+                    }
+                } => action,
             }
-            action = async {
-                if matches!(server.state, tap::network::ServerState::Binded) {
-                    Some(Action::Client(server.accept().await))
-                } else if server.addr.is_empty() {
-                    tap::utils::Waiter::block().await;
-                    None
-                } else {
-                    Some(Action::Bind(server.bind().await))
-                }
-            } => action,
-        };
-        let mut e: Result<(), std::io::Error> = Ok(());
-        match action {
-            Some(action) => match action {
-                Action::Bind(r) => match r {
+        }
+    }
+
+    fn process(&mut self, action: Action) -> impl std::future::Future<Output = Result<(), std::io::Error>> + Send {
+        async {
+            match action {
+                Action::Other(OtherAction::Bind(r)) => match r {
                     Ok(()) => {
-                        messages.lock().await.log(tap::cli::Message::Head(format!(
+                        self.messages.lock().await.log(tap::cli::Message::Head(format!(
                             "Server listening on {}",
-                            server.addr,
+                            self.server.addr,
                         )));
                     }
                     Err(e) => {
-                        messages.lock().await.log(tap::cli::Message::error(e));
-                        server.addr = String::new();
+                        self.messages.lock().await.log(tap::cli::Message::error(e));
+                        self.server.addr = String::new();
                     }
                 }
-                Action::Client(r) => match r {
+                Action::Other(OtherAction::Client(r)) => match r {
                     Ok(mut client) => {
-                        let messages = messages.clone();
-                        let tx = tx.clone();
+                        let messages = self.messages.clone();
+                        let sender = self.sender.clone();
                         tokio::spawn(async move {
                             messages.lock().await.log(tap::cli::Message::Info(format!(
                                 "new client connected {}",
                                 client.addr,
                             )));
-                            let _ = tx.lock().await.send(());
+                            let _ = sender.lock().await.send(());
                             client.write("OK hello proto=1\n").await;
                             loop {
                                 match client.read().await {
@@ -140,7 +144,7 @@ async fn main() {
                                             to: "S".to_string(),
                                             message: v.to_string(),
                                         });
-                                        let _ = tx.lock().await.send(());
+                                        let _ = sender.lock().await.send(());
                                         client.write("OK connected\n").await;
                                     },
                                     Err(e) => {
@@ -157,41 +161,40 @@ async fn main() {
                                 "client {} disconnected",
                                 client.addr,
                             )));
-                            let _ = tx.lock().await.send(());
+                            let _ = sender.lock().await.send(());
                         });
                     }
                     Err(e) => {
-                        messages.lock().await.log(tap::cli::Message::error(e));
-                        server.addr = String::new();
+                        self.messages.lock().await.log(tap::cli::Message::error(e));
+                        self.server.addr = String::new();
                     }
                 }
-                Action::Interrupt => e = Err(std::io::Error::other("Interrupted")),
                 Action::Validate => {
-                    if !matches!(server.state, tap::network::ServerState::Binded) {
-                        server.addr = input.consume();
-                        messages.lock().await.log(tap::cli::Message::Info(format!(
+                    if !matches!(self.server.state, tap::network::ServerState::Binded) {
+                        self.server.addr = self.input.consume();
+                        self.messages.lock().await.log(tap::cli::Message::Info(format!(
                             "trying to bind on '{}'",
-                            server.addr,
+                            self.server.addr,
                         )));
                     }
                 }
-            }
-            None => (),
-        }
-        match e {
-            Err(e) => {
-                match terminal.close() {
-                    Ok(_) => (),
-                    Err(e) => eprintln!("Error: failed to close terminal ui: {e}"),
-                };
-                eprintln!("{e}");
-                break;
-            }
-            Ok(_) => (),
-        };
-        if matches!(server.state, tap::network::ServerState::Terminated) {
-            messages.lock().await.log(tap::cli::Message::Head("Server closed".to_string()));
-            server.state = tap::network::ServerState::Disconnected;
+                _ => (),
+            };
+            Ok(())
         }
     }
+
+    fn update(&mut self) -> impl std::future::Future<Output = ()> + Send {
+        async {
+            if matches!(self.server.state, tap::network::ServerState::Terminated) {
+                self.messages.lock().await.log(tap::cli::Message::Head("Server closed".to_string()));
+                self.server.state = tap::network::ServerState::Disconnected;
+            }
+        }
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    tap::cli::run::<Cli>().await;
 }
