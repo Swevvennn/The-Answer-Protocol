@@ -1,6 +1,5 @@
 use strum::IntoEnumIterator;
 
-use crate::messages::MessageParse;
 use crate::messages::utils;
 
 #[derive(strum_macros::EnumIter)]
@@ -50,10 +49,8 @@ impl Error {
             Self::SendFailed => "SEND_FAILED",
         }
     }
-}
 
-impl MessageParse for Error {
-    fn from_string(s: &str) -> Result<Error, std::io::Error> {
+    pub fn from_string(s: &str) -> Result<Error, std::io::Error> {
         if !s.starts_with("ERR") {
             return Err(utils::invalid_input("not an error"));
         }

@@ -1,10 +1,6 @@
 use crate::messages::{Command, Error, Event, Response};
 use crate::messages::utils;
 
-pub trait MessageParse: Sized {
-    fn from_string(s: &str) -> Result<Self, std::io::Error>;
-}
-
 pub enum Message {
     Command(Command),
     Error(Error),
@@ -12,8 +8,8 @@ pub enum Message {
     Response(Response),
 }
 
-impl MessageParse for Message {
-    fn from_string(s: &str) -> Result<Message, std::io::Error> {
+impl Message {
+    pub fn from_string(s: &str) -> Result<Message, std::io::Error> {
         if let Ok(v) = Command::from_string(s) {
             return Ok(Message::Command(v));
         }

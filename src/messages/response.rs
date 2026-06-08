@@ -1,4 +1,3 @@
-use crate::messages::MessageParse;
 use crate::messages::Payload;
 use crate::messages::utils;
 
@@ -6,8 +5,8 @@ pub struct Response {
     pub payload: Payload,
 }
 
-impl MessageParse for Response {
-    fn from_string(s: &str) -> Result<Response, std::io::Error> {
+impl Response {
+    pub fn from_string(s: &str) -> Result<Response, std::io::Error> {
         let mut message = s.to_string();
         if !utils::parse_begin(&mut message, "OK") {
             return Err(utils::invalid_input("not a response"));

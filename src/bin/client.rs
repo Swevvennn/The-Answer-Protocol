@@ -1,5 +1,3 @@
-use tap::messages::MessageParse;
-
 #[tokio::main]
 async fn main() {
     enum Stage {
@@ -127,12 +125,18 @@ async fn main() {
                     Ok(message) => match message {
                         Some(message) => {
                             if match (&stage, &message) {
-                                (Stage::WaitingGreeting, tap::messages::Message::Response(message)) if message.payload.matches(&[
-                                    tap::messages::PayloadPattern::String(Some("hello")),
-                                    tap::messages::PayloadPattern::KeyValue(Some("proto")),
-                                ]) => {
-                                    stage = Stage::EnteringUsername;
-                                    true
+                                (Stage::WaitingGreeting, tap::messages::Message::Response(message)) => {
+                                    let mut version = String::new();
+                                    match message.payload.extract(&mut [
+                                        tap::messages::PayloadExtractor::String(&mut "hello".to_string()),
+                                        tap::messages::PayloadExtractor::KeyValue { key: &mut "proto".to_string(), value: &mut version }
+                                    ]) {
+                                        Ok(_) => {
+                                            stage = Stage::EnteringUsername;
+                                            true
+                                        }
+                                        Err(_) => false,
+                                    }
                                 }
                                 (Stage::WaitingAuth, message) if matches!(
                                     message,
@@ -142,9 +146,9 @@ async fn main() {
                                     if matches!(message, tap::messages::Message::Error(_)) {
                                         stage = Stage::EnteringUsername;
                                         true
-                                    } else if let tap::messages::Message::Response(response) = message && response.payload.matches(&[
-                                        tap::messages::PayloadPattern::String(Some("connected")),
-                                    ]) {
+                                    } else if let tap::messages::Message::Response(response) = message && matches!(response.payload.extract(&mut [
+                                        tap::messages::PayloadExtractor::String(&mut "connected".to_string()),
+                                    ]), Ok(_)) {
                                         stage = Stage::EnteringCommand;
                                         true
                                     } else {

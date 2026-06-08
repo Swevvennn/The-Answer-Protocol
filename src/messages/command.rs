@@ -1,8 +1,7 @@
 use strum::IntoEnumIterator;
 
-use crate::messages::MessageParse;
 use crate::messages::Payload;
-use crate::messages::PayloadPattern;
+// use crate::messages::PayloadPattern;
 use crate::messages::utils;
 
 #[derive(strum_macros::EnumIter)]
@@ -25,30 +24,6 @@ pub enum CommandKind {
     Take,
     Talk,
     Who,
-}
-
-impl CommandKind {
-    pub fn payload(&self) -> &[PayloadPattern<'static>] {
-        match self {
-            Self::Connect => &[
-                PayloadPattern::String(None),
-            ],
-            Self::Look => &[],
-            _ => &[],
-        }
-    }
-
-    pub fn response(&self) -> &[PayloadPattern<'static>] {
-        match self {
-            Self::Connect => &[
-                PayloadPattern::String(Some("connected")),
-            ],
-            Self::Look => &[
-                PayloadPattern::Json,
-            ],
-            _ => &[],
-        }
-    }
 }
 
 impl std::fmt::Display for CommandKind {
@@ -81,8 +56,8 @@ pub struct Command {
     pub payload: Payload,
 }
 
-impl MessageParse for Command {
-    fn from_string(s: &str) -> Result<Command, std::io::Error> {
+impl Command {
+    pub fn from_string(s: &str) -> Result<Command, std::io::Error> {
         let mut message = s.to_string();
         for kind in CommandKind::iter() {
             if utils::parse_begin(&mut message, &kind.to_string()) {

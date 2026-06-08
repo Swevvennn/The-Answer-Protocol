@@ -1,6 +1,5 @@
 use strum::IntoEnumIterator;
 
-use crate::messages::MessageParse;
 use crate::messages::Payload;
 use crate::messages::utils;
 
@@ -54,8 +53,8 @@ pub struct Event {
     pub payload: Payload,
 }
 
-impl MessageParse for Event {
-    fn from_string(s: &str) -> Result<Event, std::io::Error> {
+impl Event {
+    pub fn from_string(s: &str) -> Result<Event, std::io::Error> {
         let mut message = s.to_string();
         if utils::parse_begin(&mut message, "EVT") {
             return Err(utils::invalid_input("not an event"));

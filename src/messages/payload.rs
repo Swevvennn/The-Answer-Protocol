@@ -1,4 +1,3 @@
-use crate::messages::MessageParse;
 use crate::messages::utils;
 
 #[derive(Clone)]
@@ -11,16 +10,30 @@ pub enum PayloadKind {
     Json(serde_json::Value),
 }
 
-pub enum PayloadPattern<'a> {
-    String(Option<&'a str>),
-    KeyValue(Option<&'a str>),
-    Json,
+pub trait PayloadJson {
+    fn set_json(&mut self, value: &serde_json::Value) -> Result<(), std::io::Error>;
 }
 
-pub const GREETING_PATTERN: &[PayloadPattern<'static>] = &[
-    PayloadPattern::String(Some("hello")),
-    PayloadPattern::KeyValue(Some("proto")),
-];
+impl<T> PayloadJson for T
+where
+    T: serde::de::DeserializeOwned,
+{
+    fn set_json(&mut self, value: &serde_json::Value) -> Result<(), std::io::Error> {
+        match serde_json::from_value(value.clone()) {
+            Ok(v) => Ok(*self = v),
+            Err(e) => Err(e.into()),
+        }
+    }
+}
+
+pub enum PayloadExtractor<'a> {
+    String(&'a mut String),
+    KeyValue {
+        key: &'a mut String,
+        value: &'a mut String,
+    },
+    Json(&'a mut dyn PayloadJson),
+}
 
 impl PayloadKind {
     pub fn new<T: serde::Serialize>(data: T) -> Self {
@@ -58,22 +71,6 @@ impl PayloadKind {
         match serde_json::from_str(s) {
             Ok(v) => Ok(Self::Json(v)),
             Err(_) => Err(utils::invalid_input("invalid json")),
-        }
-    }
-
-    pub fn extract<T: serde::de::DeserializeOwned>(&self) -> Result<T, std::io::Error> {
-        match self {
-            Self::Json(json) => serde_json::from_value(json.clone()).map_err(|e| e.into()),
-            _ => panic!("payload isn't a json"),
-        }
-    }
-
-    pub fn matches(&self, pattern: &PayloadPattern) -> bool {
-        match (self, pattern) {
-            (Self::String(s), PayloadPattern::String(p)) => if let Some(p) = p { s == p } else { true },
-            (Self::KeyValue { key, value: _ }, PayloadPattern::KeyValue(p)) => if let Some(p) = p { key == p } else { true },
-            (Self::Json(_), PayloadPattern::Json) => true,
-            _ => false,
         }
     }
 
@@ -124,21 +121,7 @@ impl Payload {
         }
     }
 
-    pub fn matches(&self, args: &[PayloadPattern]) -> bool {
-        if self.args.len() != args.len() {
-            return false;
-        }
-        for i in 0..self.args.len() {
-            if !self.args[i].matches(&args[i]) {
-                return false;
-            }
-        }
-        true
-    }
-}
-
-impl MessageParse for Payload {
-    fn from_string(s: &str) -> Result<Self, std::io::Error> {
+    pub fn from_string(s: &str) -> Result<Self, std::io::Error> {
         let mut payload = Self { args: Vec::new() };
         let mut escaped = false;
         let mut i: usize = 0;
@@ -184,6 +167,74 @@ impl MessageParse for Payload {
             i = j + 1;
         }
         Ok(payload)
+    }
+
+    pub fn extract(&self, dest: &mut [PayloadExtractor<'_>]) -> Result<(), std::io::Error> {
+        if dest.len() != self.args.len() {
+            return Err(std::io::Error::other(format!(
+                "invalid number of arguments: {} expected, got {}",
+                self.args.len(),
+                dest.len(),
+            )));
+        }
+        for (i, (src, dest)) in self.args.iter().zip(dest.iter_mut()).enumerate() {
+            match (src, dest) {
+                (
+                    PayloadKind::String(src),
+                    PayloadExtractor::String(dest),
+                ) => {
+                    if dest.is_empty() {
+                        **dest = src.clone();
+                    } else if src != *dest {
+                        return Err(std::io::Error::other(format!(
+                            "invalid argument {}: '{}' expected, got '{}'",
+                            i + 1,
+                            dest,
+                            src,
+                        )));
+                    }
+                }
+                (
+                    PayloadKind::KeyValue {
+                        key: src_key,
+                        value: src_value
+                    },
+                    PayloadExtractor::KeyValue {
+                        key: dest_key,
+                        value: dest_value
+                    },
+                ) => {
+                    if dest_key.is_empty() {
+                        **dest_key = src_key.clone();
+                    } else if src_key != *dest_key {
+                        return Err(std::io::Error::other(format!(
+                            "invalid argument key {}: '{}' expected, got '{}'",
+                            i + 1,
+                            dest_key,
+                            src_key,
+                        )));
+                    }
+                    **dest_value = src_value.clone();
+                }
+                (
+                    PayloadKind::Json(src),
+                    PayloadExtractor::Json(dest),
+                ) => {
+                    if let Err(e) = dest.set_json(src) {
+                        return Err(std::io::Error::other(format!(
+                            "invalid json argument {}: {}",
+                            i + 1,
+                            e,
+                        )));
+                    }
+                }
+                _ => return Err(std::io::Error::other(format!(
+                    "argument {} has invalid type",
+                    i + 1,
+                ))),
+            }
+        }
+        Ok(())
     }
 }
 

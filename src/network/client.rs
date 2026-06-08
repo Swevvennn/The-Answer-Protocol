@@ -1,6 +1,6 @@
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use crate::messages::{Message, MessageParse};
+use crate::messages::Message;
 
 pub enum ClientState {
     Authenticated,

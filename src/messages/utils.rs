@@ -1,4 +1,3 @@
-use crate::messages::MessageParse;
 use crate::messages::Payload;
 
 pub fn write_vec(f: &mut std::fmt::Formatter<'_>, mut v: Vec<String>) -> std::fmt::Result {
