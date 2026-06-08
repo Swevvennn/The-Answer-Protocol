@@ -1,138 +1,156 @@
-#[tokio::main]
-async fn main() {
-    enum Stage {
-        EnteringAddress,
-        WaitingConnection,
-        WaitingGreeting,
-        EnteringUsername,
-        WaitingAuth,
-        EnteringCommand,
-        WaitingResponse,
-    }
-    enum Action {
-        Connection(Result<(), std::io::Error>),
-        Interrupt,
-        Read(Result<Option<tap::messages::Message>, std::io::Error>),
-        Timeout,
-        Validate,
-    }
-    let mut terminal = match tap::cli::Terminal::new() {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("Error: failed to create terminal ui: {e}");
-            return;
+enum Stage {
+    EnteringAddress,
+    WaitingConnection,
+    WaitingGreeting,
+    EnteringUsername,
+    WaitingAuth,
+    EnteringCommand,
+    WaitingResponse,
+}
+
+enum OtherAction {
+    Connection(Result<(), std::io::Error>),
+    Read(Result<Option<tap::messages::Message>, std::io::Error>),
+}
+
+type Action = tap::cli::Action<OtherAction>;
+
+struct Cli {
+    stage: Stage,
+    waiter: tap::utils::Waiter,
+    input: tap::cli::Input,
+    messages: tap::cli::Messages,
+    player: tap::game::Player,
+}
+
+impl tap::cli::Wrapper for Cli {
+    type OtherAction = OtherAction;
+
+    fn new() -> Self {
+        Self {
+            stage: Stage::EnteringAddress,
+            waiter: tap::utils::Waiter::new(),
+            input: tap::cli::Input::new(),
+            messages: tap::cli::Messages::new(),
+            player: tap::game::Player::new(),
         }
-    };
-    let mut stage = Stage::EnteringAddress;
-    let mut waiter = tap::utils::Waiter::new();
-    let mut input = tap::cli::Input::new();
-    let mut messages = tap::cli::Messages::new();
-    let mut player = tap::game::Player::new();
-    loop {
-        let a = 0;
-        terminal.update(&a, |_, frame| {
-            let chunks = ratatui::layout::Layout::default()
-                .direction(ratatui::layout::Direction::Vertical)
-                .constraints([
-                    ratatui::layout::Constraint::Length(4),
-                    ratatui::layout::Constraint::Min(1),
-                    ratatui::layout::Constraint::Length(3),
-                ])
-                .split(frame.area());
-            frame.render_widget(
-                ratatui::widgets::Paragraph::new(
-                    format!(
-                        "Server: {} ({})\nUsername: {}",
-                        if player.client.addr.is_empty() { "?" } else { &player.client.addr },
-                        player.client.state,
-                        if player.username.is_empty() { "?" } else { &player.username },
+    }
+
+    fn draw(&self, terminal: &mut tap::cli::Terminal) -> impl std::future::Future<Output = ()> + Send {
+        async {
+            terminal.update(|frame| {
+                let chunks = ratatui::layout::Layout::default()
+                    .direction(ratatui::layout::Direction::Vertical)
+                    .constraints([
+                        ratatui::layout::Constraint::Length(4),
+                        ratatui::layout::Constraint::Min(1),
+                        ratatui::layout::Constraint::Length(3),
+                    ])
+                    .split(frame.area());
+                frame.render_widget(
+                    ratatui::widgets::Paragraph::new(
+                        format!(
+                            "Server: {} ({})\nUsername: {}",
+                            if self.player.client.addr.is_empty() { "?" } else { &self.player.client.addr },
+                            self.player.client.state,
+                            if self.player.username.is_empty() { "?" } else { &self.player.username },
+                        )
                     )
-                )
-                    .block(
-                        ratatui::widgets::Block::default()
-                            .borders(ratatui::widgets::Borders::ALL)
-                    ),
-                chunks[0],
-            );
-            frame.render_widget(
-                ratatui::widgets::Paragraph::new(messages.to_string())
-                    .block(
-                        ratatui::widgets::Block::default()
-                            .borders(ratatui::widgets::Borders::ALL)
-                    )
-                    .scroll((messages.messages.len().saturating_sub(chunks[1].height.saturating_sub(2) as usize) as u16, 0)),
-                chunks[1],
-            );
-            frame.render_widget(
-                ratatui::widgets::Paragraph::new(format!("> {input}"))
-                    .block(
-                        ratatui::widgets::Block::default()
-                            .title(
-                                match player.client.state {
-                                    tap::network::ClientState::Connected => "Enter a username",
-                                    tap::network::ClientState::Authenticated => "Enter a command",
-                                    _ => "Enter the server address (<IPv4>:<port>)",
-                                }
-                            )
-                            .borders(ratatui::widgets::Borders::ALL),
-                    ), 
-                chunks[2],
-            );
-        });
-        let action = tokio::select! {
-            _ = waiter.wait() => Some(Action::Timeout),
-            event = terminal.read(&mut input) => {
-                match event {
-                    Some(event) => match event {
-                        tap::cli::TerminalEvent::Interrupted => Some(Action::Interrupt),
-                        tap::cli::TerminalEvent::Validate => Some(Action::Validate),
+                        .block(
+                            ratatui::widgets::Block::default()
+                                .borders(ratatui::widgets::Borders::ALL)
+                        ),
+                    chunks[0],
+                );
+                frame.render_widget(
+                    ratatui::widgets::Paragraph::new(self.messages.to_string())
+                        .block(
+                            ratatui::widgets::Block::default()
+                                .borders(ratatui::widgets::Borders::ALL)
+                        )
+                        .scroll((self.messages.messages.len().saturating_sub(chunks[1].height.saturating_sub(2) as usize) as u16, 0)),
+                    chunks[1],
+                );
+                frame.render_widget(
+                    ratatui::widgets::Paragraph::new(format!("> {}", self.input))
+                        .block(
+                            ratatui::widgets::Block::default()
+                                .title(
+                                    match self.player.client.state {
+                                        tap::network::ClientState::Connected => "Enter a username",
+                                        tap::network::ClientState::Authenticated => "Enter a command",
+                                        _ => "Enter the server address (<IPv4>:<port>)",
+                                    }
+                                )
+                                .borders(ratatui::widgets::Borders::ALL),
+                        ), 
+                    chunks[2],
+                );
+            });
+        }
+    }
+
+    fn select(&mut self, terminal: &mut tap::cli::Terminal) -> impl std::future::Future<Output = Option<Action>> + Send {
+        async {
+            tokio::select! {
+                _ = self.waiter.wait() => Some(Action::Awake),
+                event = terminal.read(&mut self.input) => {
+                    match event {
+                        Some(event) => match event {
+                            tap::cli::TerminalEvent::Interrupted => Some(Action::Interrupt),
+                            tap::cli::TerminalEvent::Validate => Some(Action::Validate),
+                            _ => None,
+                        }
                         _ => None,
                     }
-                    _ => None,
                 }
+                action = async {
+                    if matches!(self.stage, Stage::WaitingConnection) {
+                        Some(Action::Other(OtherAction::Connection(self.player.client.connect().await)))
+                    } else if matches!(self.player.client.state, tap::network::ClientState::Disconnected | tap::network::ClientState::Terminated) {
+                        tap::utils::Waiter::block().await;
+                        None
+                    } else {
+                        Some(Action::Other(OtherAction::Read(self.player.client.read().await)))
+                    }
+                } => action,
             }
-            action = async {
-                if matches!(stage, Stage::WaitingConnection) {
-                    Some(Action::Connection(player.client.connect().await)) 
-                } else if matches!(player.client.state, tap::network::ClientState::Disconnected | tap::network::ClientState::Terminated) {
-                    tap::utils::Waiter::block().await;
-                    None
-                } else {
-                    Some(Action::Read(player.client.read().await))
-                }
-            } => action,
-        };
-        let mut e: Result<(), std::io::Error> = Ok(());
-        match action {
-            Some(action) => match action {
-                Action::Connection(r) => match r {
+        }
+    }
+
+    fn process(&mut self, action: Action) -> impl std::future::Future<Output = Result<(), std::io::Error>> + Send {
+        async {
+            match action {
+                Action::Other(OtherAction::Connection(r)) => match r {
                     Ok(_) => {
-                        messages.log(tap::cli::Message::Head(format!(
+                        self.messages.log(tap::cli::Message::Head(format!(
                             "Connected to {}",
-                            player.client.addr,
+                            self.player.client.addr,
                         )));
-                        stage = Stage::WaitingGreeting;
-                        waiter.begin();
+                        self.stage = Stage::WaitingGreeting;
+                        self.waiter.begin();
                     }
                     Err(e) => {
-                        messages.log(tap::cli::Message::error(e));
-                        stage = Stage::EnteringAddress;
-                        waiter.end();
+                        self.messages.log(tap::cli::Message::error(e));
+                        self.stage = Stage::EnteringAddress;
+                        self.waiter.end();
                     }
                 }
-                Action::Interrupt => e = Err(std::io::Error::other("Interrupted")),
-                Action::Read(r) => match r {
+                Action::Other(OtherAction::Read(r)) => match r {
                     Ok(message) => match message {
                         Some(message) => {
-                            if match (&stage, &message) {
+                            if match (&self.stage, &message) {
                                 (Stage::WaitingGreeting, tap::messages::Message::Response(message)) => {
                                     let mut version = String::new();
                                     match message.payload.extract(&mut [
                                         tap::messages::PayloadExtractor::String(&mut "hello".to_string()),
-                                        tap::messages::PayloadExtractor::KeyValue { key: &mut "proto".to_string(), value: &mut version }
+                                        tap::messages::PayloadExtractor::KeyValue {
+                                            key: &mut "proto".to_string(),
+                                            value: &mut version
+                                        }
                                     ]) {
                                         Ok(_) => {
-                                            stage = Stage::EnteringUsername;
+                                            self.stage = Stage::EnteringUsername;
                                             true
                                         }
                                         Err(_) => false,
@@ -144,12 +162,12 @@ async fn main() {
                                     tap::messages::Message::Error(_)
                                 ) => {
                                     if matches!(message, tap::messages::Message::Error(_)) {
-                                        stage = Stage::EnteringUsername;
+                                        self.stage = Stage::EnteringUsername;
                                         true
                                     } else if let tap::messages::Message::Response(response) = message && matches!(response.payload.extract(&mut [
                                         tap::messages::PayloadExtractor::String(&mut "connected".to_string()),
                                     ]), Ok(_)) {
-                                        stage = Stage::EnteringCommand;
+                                        self.stage = Stage::EnteringCommand;
                                         true
                                     } else {
                                         false
@@ -160,7 +178,7 @@ async fn main() {
                                     tap::messages::Message::Response(_) |
                                     tap::messages::Message::Error(_)
                                 ) => {
-                                    stage = Stage::EnteringCommand;
+                                    self.stage = Stage::EnteringCommand;
                                     true
                                 }
                                 (Stage::EnteringCommand, message) if matches!(
@@ -171,98 +189,98 @@ async fn main() {
                                 }
                                 (_, _) => false,
                             } {
-                                messages.log(tap::cli::Message::Network {
+                                self.messages.log(tap::cli::Message::Network {
                                     from: "S".to_string(),
                                     to: "C".to_string(),
                                     message: message.to_string(),
                                 });
                             } else {
-                                messages.log(tap::cli::Message::Error(format!("unexpected message received from the server: {message}")));
-                                player.client.close();
+                                self.messages.log(tap::cli::Message::Error(format!("unexpected message received from the server: {message}")));
+                                self.player.client.close();
                             }
-                            waiter.end();
+                            self.waiter.end();
                         },
                         None => (),
                     }
-                    Err(e) => messages.log(tap::cli::Message::error(e)),
+                    Err(e) => self.messages.log(tap::cli::Message::error(e)),
                 }
-                Action::Timeout => {
-                    messages.log(tap::cli::Message::Error("the server is not responding".to_string()));
-                    player.client.close();
+                Action::Awake => {
+                    self.messages.log(tap::cli::Message::Error("the server is not responding".to_string()));
+                    self.player.client.close();
                 }
                 Action::Validate => {
-                    match &stage {
+                    match &self.stage {
                         Stage::EnteringAddress => {
-                            player.client.addr = input.consume();
-                            messages.log(tap::cli::Message::Info(format!(
+                            self.player.client.addr = self.input.consume();
+                            self.messages.log(tap::cli::Message::Info(format!(
                                 "attempting to connect to '{}'",
-                                player.client.addr,
+                                self.player.client.addr,
                             )));
-                            stage = Stage::WaitingConnection;
-                            waiter.begin();
+                            self.stage = Stage::WaitingConnection;
+                            self.waiter.begin();
                         }
                         Stage::EnteringUsername => {
-                            player.username = input.consume();
-                            messages.log(tap::cli::Message::Info(format!(
+                            self.player.username = self.input.consume();
+                            self.messages.log(tap::cli::Message::Info(format!(
                                 "try to authenticate with username '{}'",
-                                player.username,
+                                self.player.username,
                             )));
-                            match player.client.write_message(&tap::messages::Message::Command(tap::messages::Command {
+                            match self.player.client.write_message(&tap::messages::Message::Command(tap::messages::Command {
                                 kind: tap::messages::CommandKind::Connect,
                                 payload: tap::messages::Payload::new(&[
-                                    tap::messages::PayloadKind::String(player.username.clone()),
+                                    tap::messages::PayloadKind::String(self.player.username.clone()),
                                 ]),
                             })).await {
                                 Ok(_) => {
-                                    stage = Stage::WaitingAuth;
-                                    waiter.begin();
+                                    self.stage = Stage::WaitingAuth;
+                                    self.waiter.begin();
                                 },
-                                Err(e) => messages.log(tap::cli::Message::error(e)),
+                                Err(e) => self.messages.log(tap::cli::Message::error(e)),
                             };
                         }
                         Stage::EnteringCommand => {
-                            let input = input.consume();
-                            messages.log(tap::cli::Message::Network {
+                            let input = self.input.consume();
+                            self.messages.log(tap::cli::Message::Network {
                                 from: "C".to_string(),
                                 to: "S".to_string(),
                                 message: input.clone(),
                             });
                             match tap::messages::Message::from_string(&input) {
-                                Ok(message) => match player.client.write_message(&message).await {
+                                Ok(message) => match self.player.client.write_message(&message).await {
                                     Ok(_) => {
-                                        stage = Stage::WaitingResponse;
-                                        waiter.begin();
+                                        self.stage = Stage::WaitingResponse;
+                                        self.waiter.begin();
                                     },
-                                    Err(e) => messages.log(tap::cli::Message::error(e)),
+                                    Err(e) => self.messages.log(tap::cli::Message::error(e)),
                                 },
-                                Err(_) => messages.log(tap::cli::Message::Error("invalid command".to_string())),
+                                Err(_) => self.messages.log(tap::cli::Message::Error("invalid command".to_string())),
                             }
                         }
                         _ => (),
                     };
-                },
-            }
-            None => (),
-        };
-        match e {
-            Err(e) => {
-                match terminal.close() {
-                    Ok(_) => (),
-                    Err(e) => eprintln!("Error: failed to close terminal ui: {e}"),
-                };
-                eprintln!("{e}");
-                break;
-            }
-            Ok(_) => (),
-        };
-        if matches!(player.client.state, tap::network::ClientState::Terminated) {
-            messages.log(tap::cli::Message::Head(format!(
-                "Connection to {} closed",
-                player.client.addr,
-            )));
-            player.client.state = tap::network::ClientState::Disconnected;
-            stage = Stage::EnteringAddress;
-            waiter.end();
+                }
+                _ => (),
+            };
+            Ok(())
         }
     }
+
+    fn update(&mut self) -> impl std::future::Future<Output = ()> + Send {
+        async {
+            if matches!(self.player.client.state, tap::network::ClientState::Terminated) {
+                self.messages.log(tap::cli::Message::Head(format!(
+                    "Connection to {} closed",
+                    self.player.client.addr,
+                )));
+                self.player.client.state = tap::network::ClientState::Disconnected;
+                self.stage = Stage::EnteringAddress;
+                self.waiter.end();
+            };
+        }
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    tap::cli::run::<Cli>().await;
 }
