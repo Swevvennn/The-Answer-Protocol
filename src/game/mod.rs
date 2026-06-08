@@ -1,3 +1,12 @@
+mod direction;
+pub use direction::Direction;
+
+mod item;
+pub use item::Item;
+
 mod player;
 pub use player::Player;
-pub use player::SharedPlayer;
+
+mod room;
+pub use room::Room;
+pub use room::RoomState;

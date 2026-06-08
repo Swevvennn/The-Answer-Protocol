@@ -1,4 +1,57 @@
+struct UiUtils<'a> {
+    server: &'a tap::network::Server,
+    input: &'a tap::cli::Input,
+    messages: &'a tap::cli::Messages,
+}
 
+fn ui(utils: &UiUtils, frame: &mut ratatui::Frame) {
+    let chunks = ratatui::layout::Layout::default()
+        .direction(ratatui::layout::Direction::Vertical)
+        .constraints([
+            ratatui::layout::Constraint::Length(4),
+            ratatui::layout::Constraint::Min(1),
+            ratatui::layout::Constraint::Length(3),
+        ])
+        .split(frame.area());
+    frame.render_widget(
+        ratatui::widgets::Paragraph::new(
+            format!(
+                "Listening at: {} ({})\nClients number: {}",
+                if utils.server.addr.is_empty() { "?" } else { &utils.server.addr },
+                utils.server.state,
+                "?",
+            )
+        )
+            .block(
+                ratatui::widgets::Block::default()
+                    .borders(ratatui::widgets::Borders::ALL)
+            ),
+        chunks[0],
+    );
+    frame.render_widget(
+        ratatui::widgets::Paragraph::new(utils.messages.to_string())
+            .block(
+                ratatui::widgets::Block::default()
+                    .borders(ratatui::widgets::Borders::ALL)
+            )
+            .scroll((utils.messages.messages.len().saturating_sub(chunks[1].height.saturating_sub(2) as usize) as u16, 0)),
+        chunks[1],
+    );
+    frame.render_widget(
+        ratatui::widgets::Paragraph::new(format!("> {}", utils.input))
+            .block(
+                ratatui::widgets::Block::default()
+                    .title(
+                        match utils.server.state {
+                            tap::network::ServerState::Binded => "Press Ctrl + C to exit",
+                            _ => "Enter a binding address (<IPv4>:<port>)",
+                        }
+                    )
+                    .borders(ratatui::widgets::Borders::ALL),
+            ), 
+        chunks[2],
+    );
+}
 
 #[tokio::main]
 async fn main() {
@@ -21,58 +74,14 @@ async fn main() {
     let tx = tap::utils::Shared::new(tx);
     let mut server = tap::network::Server::new();
     loop {
-        {
-            let messages = messages.lock().await;
-            let a = 0;
-            terminal.update(&a, |_, frame| {
-                let chunks = ratatui::layout::Layout::default()
-                    .direction(ratatui::layout::Direction::Vertical)
-                    .constraints([
-                        ratatui::layout::Constraint::Length(4),
-                        ratatui::layout::Constraint::Min(1),
-                        ratatui::layout::Constraint::Length(3),
-                    ])
-                    .split(frame.area());
-                frame.render_widget(
-                    ratatui::widgets::Paragraph::new(
-                        format!(
-                            "Listening at: {} ({})\nClients number: {}",
-                            if server.addr.is_empty() { "?" } else { &server.addr },
-                            server.state,
-                            "?",
-                        )
-                    )
-                        .block(
-                            ratatui::widgets::Block::default()
-                                .borders(ratatui::widgets::Borders::ALL)
-                        ),
-                    chunks[0],
-                );
-                frame.render_widget(
-                    ratatui::widgets::Paragraph::new(messages.to_string())
-                        .block(
-                            ratatui::widgets::Block::default()
-                                .borders(ratatui::widgets::Borders::ALL)
-                        )
-                        .scroll((messages.messages.len().saturating_sub(chunks[1].height.saturating_sub(2) as usize) as u16, 0)),
-                    chunks[1],
-                );
-                frame.render_widget(
-                    ratatui::widgets::Paragraph::new(format!("> {input}"))
-                        .block(
-                            ratatui::widgets::Block::default()
-                                .title(
-                                    match server.state {
-                                        tap::network::ServerState::Binded => "Press Ctrl + C to exit",
-                                        _ => "Enter a binding address (<IPv4>:<port>)",
-                                    }
-                                )
-                                .borders(ratatui::widgets::Borders::ALL),
-                        ), 
-                    chunks[2],
-                );
-            });
-        }
+        terminal.update(
+            &UiUtils {
+                server: &server,
+                input: &input,
+                messages: &*messages.lock().await,
+            },
+            ui,
+        );
         let action = tokio::select! {
             _ = rx.changed() => None,
             event = terminal.read(&mut input) => {
