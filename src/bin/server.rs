@@ -6,24 +6,21 @@ enum OtherAction {
 type Action = tap::cli::Action<OtherAction>;
 
 struct Cli {
+    sleeper: tap::utils::Sleeper,
     input: tap::cli::Input,
     messages: tap::utils::Shared<tap::cli::Messages>,
     server: tap::network::Server,
-    sender: tap::utils::Shared<tokio::sync::watch::Sender<()>>,
-    receiver: tokio::sync::watch::Receiver<()>,
 }
 
 impl tap::cli::Wrapper for Cli {
     type OtherAction = OtherAction;
 
     fn new() -> Self {
-        let (tx, rx) = tokio::sync::watch::channel(());
         Self {
+            sleeper: tap::utils::Sleeper::default(),
             input: tap::cli::Input::default(),
             messages: tap::utils::Shared::new(tap::cli::Messages::default()),
             server: tap::network::Server::default(),
-            sender: tap::utils::Shared::new(tx),
-            receiver: rx,
         }
     }
 
@@ -81,7 +78,7 @@ impl tap::cli::Wrapper for Cli {
 
     async fn select(&mut self, terminal: &mut tap::cli::Terminal) -> Option<Action> {
         tokio::select! {
-            _ = self.receiver.changed() => None,
+            _ = self.sleeper.wait() => None,
             event = terminal.read(&mut self.input) => {
                 match event {
                     Some(event) => match event {
@@ -122,13 +119,13 @@ impl tap::cli::Wrapper for Cli {
             Action::Other(OtherAction::Client(r)) => match r {
                 Ok(mut client) => {
                     let messages = self.messages.clone();
-                    let sender = self.sender.clone();
+                    let awaker = self.sleeper.new_awaker();
                     tokio::spawn(async move {
                         messages.lock().await.log(tap::cli::Message::Info(format!(
                             "new client connected {}",
                             client.addr,
                         )));
-                        let _ = sender.lock().await.send(());
+                        awaker.wake().await;
                         let _ = client.write("OK hello proto=1\n").await;
                         loop {
                             match client.read().await {
@@ -139,7 +136,7 @@ impl tap::cli::Wrapper for Cli {
                                         to: "S".to_string(),
                                         message: v.to_string(),
                                     });
-                                    let _ = sender.lock().await.send(());
+                                    awaker.wake().await;
                                     let _ = client.write("OK connected\n").await;
                                 },
                                 Err(e) => {
@@ -156,7 +153,7 @@ impl tap::cli::Wrapper for Cli {
                             "client {} disconnected",
                             client.addr,
                         )));
-                        let _ = sender.lock().await.send(());
+                        awaker.wake().await;
                     });
                 }
                 Err(e) => {
