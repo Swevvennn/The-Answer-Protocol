@@ -24,6 +24,7 @@ pub struct Client {
     pub state: ClientState,
     pub addr: String,
     stream: Option<tokio::net::TcpStream>,
+    buffer: String,
 }
 
 impl Client {
@@ -32,6 +33,7 @@ impl Client {
             state: ClientState::Disconnected,
             addr: String::new(),
             stream: None,
+            buffer: String::new(),
         }
     }
 
@@ -40,12 +42,14 @@ impl Client {
             state: ClientState::Connected,
             addr: addr.to_string(),
             stream: Some(stream),
+            buffer: String::new(),
         }
     }
 
     pub fn close(&mut self) {
         self.state = ClientState::Terminated;
         self.stream = None;
+        self.buffer = String::new();
     }
 
     pub async fn connect(&mut self) -> Result<(), std::io::Error> {
@@ -64,7 +68,14 @@ impl Client {
     }
 
     pub async fn read(&mut self) -> Result<Option<Message>, std::io::Error> {
-        let mut remaining = String::new();
+        match self.extract_message() {
+            Ok(None) => (),
+            Err(e) => {
+                self.close();
+                return Err(e);
+            }
+            r => return r,
+        };
         let mut buffer = [0u8; 1024];
         match &mut self.stream {
             Some(stream) => match match stream.read(&mut buffer).await {
@@ -73,16 +84,8 @@ impl Client {
                     "read failed: connection closed",
                 )),
                 Ok(v) => {
-                    remaining += &String::from_utf8_lossy(&buffer[..v]).to_string();
-                    match remaining.find('\n') {
-                        None => Ok(None),
-                        Some(v) => {
-                            match Message::from_string(&remaining.drain(..v).collect::<String>()) {
-                                Ok(v) => Ok(Some(v)),
-                                Err(e) => Err(std::io::Error::other(format!("message parsing failed: {e}"))),
-                            }
-                        }
-                    }
+                    self.buffer += &String::from_utf8_lossy(&buffer[..v]).to_string();
+                    self.extract_message()
                 },
                 Err(e) => Err(std::io::Error::new(
                     e.kind(),
@@ -117,5 +120,19 @@ impl Client {
 
     pub async fn write_message(&mut self, message: &Message) -> Result<(), std::io::Error> {
         self.write(&format!("{message}\n")).await
+    }
+
+    fn extract_message(&mut self) -> Result<Option<Message>, std::io::Error> {
+        match self.buffer.find('\n') {
+            Some(v) => {
+                let message = self.buffer.drain(..v).collect::<String>();
+                self.buffer.remove(0);
+                match Message::from_string(&message) {
+                    Ok(v) => Ok(Some(v)),
+                    Err(e) => Err(std::io::Error::other(format!("message parsing failed: {e}"))),
+                }
+            }
+            None => Ok(None),
+        }
     }
 }
