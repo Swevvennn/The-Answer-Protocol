@@ -37,8 +37,8 @@ pub enum PayloadExtractor<'a> {
 }
 
 impl PayloadKind {
-    pub fn new<T: serde::Serialize>(data: T) -> Self {
-        Self::Json(serde_json::to_value(data).unwrap())
+    pub fn new_json<T: serde::Serialize>(data: &T) -> Self {
+        Self::Json(serde_json::to_value(&data).unwrap())
     }
 
     pub fn is_string(&self) -> bool {
@@ -53,11 +53,11 @@ impl PayloadKind {
         matches!(self, Self::Json(_))
     }
 
-    pub fn string_from_string(s: &str) -> Result<Self, std::io::Error> {
+    pub fn string_from_str(s: &str) -> Result<Self, std::io::Error> {
         Ok(Self::String(Self::unescape(s)))
     }
 
-    pub fn key_value_from_string(s: &str) -> Result<Self, std::io::Error> {
+    pub fn key_value_from_str(s: &str) -> Result<Self, std::io::Error> {
         let parts: Vec<&str> = s.split("=").collect();
         if parts.len() != 2 {
             return Err(crate::utils::invalid_input("invalid key value"));
@@ -68,7 +68,7 @@ impl PayloadKind {
         })
     }
 
-    pub fn json_from_string(s: &str) -> Result<Self, std::io::Error> {
+    pub fn json_from_str(s: &str) -> Result<Self, std::io::Error> {
         match serde_json::from_str(s) {
             Ok(v) => Ok(Self::Json(v)),
             Err(_) => Err(crate::utils::invalid_input("invalid json")),
@@ -128,8 +128,9 @@ impl std::fmt::Display for PayloadKind {
     }
 }
 
+#[derive(Default)]
 pub struct Payload {
-    pub args: Vec<PayloadKind>,
+    args: Vec<PayloadKind>,
 }
 
 impl Payload {
@@ -139,7 +140,11 @@ impl Payload {
         }
     }
 
-    pub fn from_string(s: &str) -> Result<Self, std::io::Error> {
+    pub fn is_empty(&self) -> bool {
+        self.args.is_empty()
+    }
+
+    pub fn from_str(s: &str) -> Result<Self, std::io::Error> {
         let mut payload = Self { args: Vec::new() };
         let mut escaped = false;
         let mut i: usize = 0;
@@ -174,9 +179,9 @@ impl Payload {
             }
             let arg: String = chars[i..j].iter().collect();
             let kind = match t {
-                1 => PayloadKind::key_value_from_string(&arg),
-                2 => PayloadKind::json_from_string(&arg),
-                _ => PayloadKind::string_from_string(&arg),
+                1 => PayloadKind::key_value_from_str(&arg),
+                2 => PayloadKind::json_from_str(&arg),
+                _ => PayloadKind::string_from_str(&arg),
             };
             payload.args.push(match kind {
                 Ok(v) => v,

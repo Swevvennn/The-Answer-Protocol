@@ -2,6 +2,8 @@ use strum::IntoEnumIterator;
 
 #[derive(strum_macros::EnumIter)]
 pub enum Error {
+    UnknownCommand,
+    InvalidArguments,
     NameInUse,
     NoExit,
     NotInGroup,
@@ -18,6 +20,8 @@ pub enum Error {
 impl Error {
     pub fn code(&self) -> u16 {
         match self {
+            Self::UnknownCommand => 100,
+            Self::InvalidArguments => 101,
             Self::NameInUse => 201,
             Self::NoExit => 301,
             Self::NotInGroup => 401,
@@ -34,6 +38,8 @@ impl Error {
 
     pub fn message(&self) -> &'static str {
         match self {
+            Self::UnknownCommand => "UNKNOWN_COMMAND",
+            Self::InvalidArguments => "INVALID_ARGUMENTS",
             Self::NameInUse => "NAME_IN_USE",
             Self::NoExit => "NO_EXIT",
             Self::NotInGroup => "NOT_IN_GROUP",
@@ -48,7 +54,7 @@ impl Error {
         }
     }
 
-    pub fn from_string(s: &str) -> Result<Error, std::io::Error> {
+    pub fn from_str(s: &str) -> Result<Error, std::io::Error> {
         if !s.starts_with("ERR") {
             return Err(crate::utils::invalid_input("not an error"));
         }

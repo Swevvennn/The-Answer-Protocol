@@ -6,17 +6,17 @@ pub enum Message {
 }
 
 impl Message {
-    pub fn from_string(s: &str) -> Result<Message, std::io::Error> {
-        if let Ok(v) = crate::messages::Command::from_string(s) {
+    pub fn from_str(s: &str) -> Result<Message, std::io::Error> {
+        if let Ok(v) = crate::messages::Command::from_str(s) {
             return Ok(Message::Command(v));
         }
-        if let Ok(v) = crate::messages::Error::from_string(s) {
+        if let Ok(v) = crate::messages::Error::from_str(s) {
             return Ok(Message::Error(v));
         }
-        if let Ok(v) = crate::messages::Event::from_string(s) {
+        if let Ok(v) = crate::messages::Event::from_str(s) {
             return Ok(Message::Event(v));
         }
-        if let Ok(v) = crate::messages::Response::from_string(s) {
+        if let Ok(v) = crate::messages::Response::from_str(s) {
             return Ok(Message::Response(v));
         }
         Err(crate::utils::invalid_input("invalid message"))

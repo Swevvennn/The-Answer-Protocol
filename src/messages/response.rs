@@ -1,9 +1,10 @@
+#[derive(Default)]
 pub struct Response {
     pub payload: crate::messages::Payload,
 }
 
 impl Response {
-    pub fn from_string(s: &str) -> Result<Response, std::io::Error> {
+    pub fn from_str(s: &str) -> Result<Response, std::io::Error> {
         let mut message = s.to_string();
         if !crate::messages::utils::parse_begin(&mut message, "OK") {
             return Err(crate::utils::invalid_input("not a response"));

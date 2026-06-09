@@ -51,7 +51,7 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn from_string(s: &str) -> Result<Event, std::io::Error> {
+    pub fn from_str(s: &str) -> Result<Event, std::io::Error> {
         let mut message = s.to_string();
         if crate::messages::utils::parse_begin(&mut message, "EVT") {
             return Err(crate::utils::invalid_input("not an event"));

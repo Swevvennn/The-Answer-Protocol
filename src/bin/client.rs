@@ -226,7 +226,7 @@ impl tap::cli::Wrapper for Cli {
                             to: "S".to_string(),
                             message: input.clone(),
                         });
-                        match tap::messages::Message::from_string(&input) {
+                        match tap::messages::Message::from_str(&input) {
                             Ok(message) => match self.player.client.write_message(&message).await {
                                 Ok(_) => {
                                     self.stage = Stage::WaitingResponse;

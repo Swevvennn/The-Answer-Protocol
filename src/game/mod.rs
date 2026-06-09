@@ -1,6 +1,9 @@
 mod direction;
 pub use direction::Direction;
 
+mod game;
+pub use game::Game;
+
 mod item;
 pub use item::Item;
 

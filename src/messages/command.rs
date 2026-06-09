@@ -53,7 +53,7 @@ pub struct Command {
 }
 
 impl Command {
-    pub fn from_string(s: &str) -> Result<Command, std::io::Error> {
+    pub fn from_str(s: &str) -> Result<Command, std::io::Error> {
         let mut message = s.to_string();
         for kind in CommandKind::iter() {
             if crate::messages::utils::parse_begin(&mut message, &kind.to_string()) {

@@ -2,7 +2,7 @@
 
 // fn test(str: &str) {
 //     println!("===== TEST: {} =====", str);
-//     let message = match Message::from_string(str) {
+//     let message = match Message::from_str(str) {
 //         Ok(v) => v,
 //         Err(e) => {
 //             println!("INVALID: {}", e);
@@ -26,7 +26,7 @@
 
 // fn extract(str: &str) {
 //     println!("===== EXTRACT: {} =====", str);
-//     let message = match Message::from_string(str) {
+//     let message = match Message::from_str(str) {
 //         Ok(v) => v,
 //         Err(e) => {
 //             println!("INVALID: {}", e);
@@ -66,6 +66,13 @@
 //     println!("abc = {:?}", abc);
 // }
 
+// fn test(i: i32) -> Result<i32, std::io::Error> {
+//     if i == 0 {
+//         return Err(std::io::Error::other("error error error"));
+//     }
+//     i
+// }
+
 fn main() {
     // extract("OK hello keyd=value { \"i\": 2147483647, \"s\": \"string\" }");
     // test("abc");
@@ -76,4 +83,19 @@ fn main() {
     // test(" OK");
     // test("OK ");
     // test("OK abc def=ghi {\"a\": 73, \"b\": [4, 5, 6]}");
+
+    // let t = 0;
+    // match match t {
+    //     0 => {
+    //         println!("i: {}", test(0)?);
+    //         Ok(())
+    //     }
+    //     _ => {
+    //         println!("i: {}", t);
+    //         Ok(())
+    //     }
+    // } {
+    //     Ok(v) => println!("Ok: {v}"),
+    //     Err(e) => println!("Error: {e}"),
+    // }
 }

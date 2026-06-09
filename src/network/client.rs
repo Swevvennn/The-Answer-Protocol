@@ -113,9 +113,9 @@ impl Client {
             Some(v) => {
                 let message = self.buffer.drain(..v).collect::<String>();
                 self.buffer.remove(0);
-                match crate::messages::Message::from_string(&message) {
+                match crate::messages::Message::from_str(&message) {
                     Ok(v) => Ok(Some(v)),
-                    Err(e) => Err(std::io::Error::other(format!("message parsing failed: {e}"))),
+                    Err(e) => Err(std::io::Error::other(format!("message parsing failed: '{message}': {e}"))),
                 }
             }
             None => Ok(None),

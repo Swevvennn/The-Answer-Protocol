@@ -16,6 +16,7 @@ pub struct Room {
 )]
 #[serde(deny_unknown_fields)]
 pub struct RoomState {
+    pub room: Room,
     pub players: Vec<String>,
     pub items: Vec<String>,
     pub npcs: Vec<String>,
