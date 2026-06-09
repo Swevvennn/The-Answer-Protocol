@@ -20,7 +20,10 @@ where
 {
     fn set_json(&mut self, value: &serde_json::Value) -> Result<(), std::io::Error> {
         match serde_json::from_value(value.clone()) {
-            Ok(v) => Ok(*self = v),
+            Ok(v) => {
+                *self = v;
+                Ok(())
+            },
             Err(e) => Err(e.into()),
         }
     }

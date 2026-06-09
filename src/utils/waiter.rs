@@ -1,20 +1,15 @@
+#[derive(Default)]
 pub struct Waiter {
     instant: Option<tokio::time::Instant>,
 }
 
 impl Waiter {
-    pub fn new() -> Self {
-        Self {
-            instant: None,
-        }
-    }
-
     pub async fn block() {
         std::future::pending::<()>().await
     }
 
     pub fn is_waiting(&self) -> bool {
-        !matches!(self.instant, None)
+        self.instant.is_some()
     }
 
     pub fn begin(&mut self) {

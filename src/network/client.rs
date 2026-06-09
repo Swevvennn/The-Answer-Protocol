@@ -28,16 +28,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new() -> Self {
-        Self {
-            state: ClientState::Disconnected,
-            addr: String::new(),
-            stream: None,
-            buffer: String::new(),
-        }
-    }
-
-    pub fn from_connection(addr: std::net::SocketAddr, stream: tokio::net::TcpStream) -> Self {
+    pub fn new(addr: std::net::SocketAddr, stream: tokio::net::TcpStream) -> Self {
         Self {
             state: ClientState::Connected,
             addr: addr.to_string(),
@@ -53,7 +44,7 @@ impl Client {
     }
 
     pub async fn connect(&mut self) -> Result<(), std::io::Error> {
-        if matches!(self.stream, Some(_)) {
+        if self.stream.is_some() {
             return Err(std::io::Error::other("already connected"));
         }
         self.stream = match tokio::net::TcpStream::connect(&self.addr).await {
@@ -84,7 +75,7 @@ impl Client {
                     "read failed: connection closed",
                 )),
                 Ok(v) => {
-                    self.buffer += &String::from_utf8_lossy(&buffer[..v]).to_string();
+                    self.buffer += &String::from_utf8_lossy(&buffer[..v]);
                     self.extract_message()
                 },
                 Err(e) => Err(std::io::Error::new(
@@ -108,10 +99,7 @@ impl Client {
                 Ok(_) => Ok(()),
                 Err(e) => {
                     self.close();
-                    Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("write failed: {e}"),
-                    ))
+                    Err(std::io::Error::other(format!("write failed: {e}")))
                 }
             }
             None => Err(std::io::Error::other("not connected"))
@@ -133,6 +121,17 @@ impl Client {
                 }
             }
             None => Ok(None),
+        }
+    }
+}
+
+impl Default for Client {
+    fn default() -> Self {
+        Self {
+            state: ClientState::Disconnected,
+            addr: String::new(),
+            stream: None,
+            buffer: String::new(),
         }
     }
 }

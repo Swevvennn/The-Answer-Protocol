@@ -39,9 +39,7 @@ impl Terminal {
     }
 
     pub fn update<F: FnOnce(&mut ratatui::Frame)>(&mut self, ui: F) {
-        match self.tui.draw(ui) {
-            _ => (),
-        }
+        let _ = self.tui.draw(ui);
     }
 
     pub async fn read(&mut self, input: &mut crate::cli::Input) -> Option<TerminalEvent> {

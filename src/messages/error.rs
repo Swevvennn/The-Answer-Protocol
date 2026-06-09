@@ -55,7 +55,7 @@ impl Error {
             return Err(utils::invalid_input("not an error"));
         }
         for kind in Error::iter() {
-            if s.to_string() == kind.to_string() {
+            if s == kind.to_string() {
                 return Ok(kind);
             }
         }

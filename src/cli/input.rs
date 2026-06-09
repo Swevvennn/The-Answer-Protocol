@@ -1,14 +1,9 @@
+#[derive(Default)]
 pub struct Input {
     pub input: String,
 }
 
 impl Input {
-    pub fn new() -> Self {
-        Self {
-            input: String::new(),
-        }
-    }
-
     pub fn consume(&mut self) -> String {
         let input = self.input.clone();
         self.input.clear();

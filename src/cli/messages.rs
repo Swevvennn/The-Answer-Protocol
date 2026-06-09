@@ -28,21 +28,16 @@ impl std::fmt::Display for Message {
     }
 }
 
+#[derive(Default)]
 pub struct Messages {
     pub messages: Vec<Message>,
 }
 
 impl Messages {
-    pub fn new() -> Self {
-        Self {
-            messages: Vec::new(),
-        }
-    }
-
     pub fn log(&mut self, message: Message) {
-        if let Some(last) = self.messages.last() && (
-            !(matches!(last, Message::Head(_)) || matches!(message, Message::Head(_))) &&
-            !(matches!(last, Message::Error(_) | Message::Info(_)) && matches!(message, Message::Error(_) | Message::Info(_)))
+        if let Some(last) = self.messages.last() && !(
+            matches!(last, Message::Head(_)) || matches!(message, Message::Head(_)) ||
+            matches!(last, Message::Error(_) | Message::Info(_)) && matches!(message, Message::Error(_) | Message::Info(_))
         ) {
             self.messages.push(Message::Blank);
         }

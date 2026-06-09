@@ -1,8 +1,3 @@
-mod cli;
-pub use cli::Action;
-pub use cli::run;
-pub use cli::Wrapper;
-
 mod input;
 pub use input::Input;
 
@@ -15,3 +10,8 @@ pub use terminal::KeyCode;
 pub use terminal::KeyModifiers;
 pub use terminal::Terminal;
 pub use terminal::TerminalEvent;
+
+mod wrapper;
+pub use wrapper::Action;
+pub use wrapper::run;
+pub use wrapper::Wrapper;
