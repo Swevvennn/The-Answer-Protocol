@@ -1,7 +1,5 @@
 use strum::IntoEnumIterator;
 
-use crate::messages::utils;
-
 #[derive(strum_macros::EnumIter)]
 pub enum Error {
     NameInUse,
@@ -52,20 +50,20 @@ impl Error {
 
     pub fn from_string(s: &str) -> Result<Error, std::io::Error> {
         if !s.starts_with("ERR") {
-            return Err(utils::invalid_input("not an error"));
+            return Err(crate::utils::invalid_input("not an error"));
         }
         for kind in Error::iter() {
             if s == kind.to_string() {
                 return Ok(kind);
             }
         }
-        Err(utils::invalid_input("invalid error"))
+        Err(crate::utils::invalid_input("invalid error"))
     }
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        utils::write_vec(f, vec![
+        crate::messages::utils::write_vec(f, vec![
             "ERR".to_string(),
             self.code().to_string(),
             self.message().to_string(),

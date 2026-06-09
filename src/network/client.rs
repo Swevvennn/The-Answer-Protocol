@@ -1,7 +1,5 @@
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use crate::messages::Message;
-
 pub enum ClientState {
     Authenticated,
     Connected,
@@ -58,7 +56,7 @@ impl Client {
         Ok(())
     }
 
-    pub async fn read(&mut self) -> Result<Option<Message>, std::io::Error> {
+    pub async fn read(&mut self) -> Result<Option<crate::messages::Message>, std::io::Error> {
         match self.extract_message() {
             Ok(None) => (),
             Err(e) => {
@@ -106,16 +104,16 @@ impl Client {
         }
     }
 
-    pub async fn write_message(&mut self, message: &Message) -> Result<(), std::io::Error> {
+    pub async fn write_message(&mut self, message: &crate::messages::Message) -> Result<(), std::io::Error> {
         self.write(&format!("{message}\n")).await
     }
 
-    fn extract_message(&mut self) -> Result<Option<Message>, std::io::Error> {
+    fn extract_message(&mut self) -> Result<Option<crate::messages::Message>, std::io::Error> {
         match self.buffer.find('\n') {
             Some(v) => {
                 let message = self.buffer.drain(..v).collect::<String>();
                 self.buffer.remove(0);
-                match Message::from_string(&message) {
+                match crate::messages::Message::from_string(&message) {
                     Ok(v) => Ok(Some(v)),
                     Err(e) => Err(std::io::Error::other(format!("message parsing failed: {e}"))),
                 }

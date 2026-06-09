@@ -1,8 +1,5 @@
 use strum::IntoEnumIterator;
 
-use crate::messages::Payload;
-use crate::messages::utils;
-
 #[derive(strum_macros::EnumIter)]
 pub enum EventScope {
     Global,
@@ -50,30 +47,30 @@ impl std::fmt::Display for EventKind {
 pub struct Event {
     pub scope: EventScope,
     pub kind: EventKind,
-    pub payload: Payload,
+    pub payload: crate::messages::Payload,
 }
 
 impl Event {
     pub fn from_string(s: &str) -> Result<Event, std::io::Error> {
         let mut message = s.to_string();
-        if utils::parse_begin(&mut message, "EVT") {
-            return Err(utils::invalid_input("not an event"));
+        if crate::messages::utils::parse_begin(&mut message, "EVT") {
+            return Err(crate::utils::invalid_input("not an event"));
         }
-        let err = Err(utils::invalid_input("invalid event"));
-        if matches!(utils::skip_space(&mut message), Ok(false) | Err(_)) {
+        let err = Err(crate::utils::invalid_input("invalid event"));
+        if matches!(crate::messages::utils::skip_space(&mut message), Ok(false) | Err(_)) {
             return err;
         }
         for scope in EventScope::iter() {
-            if utils::parse_begin(&mut message, &scope.to_string()) {
-                if matches!(utils::skip_space(&mut message), Ok(false) | Err(_)) {
+            if crate::messages::utils::parse_begin(&mut message, &scope.to_string()) {
+                if matches!(crate::messages::utils::skip_space(&mut message), Ok(false) | Err(_)) {
                     return err;
                 }
                 for kind in EventKind::iter() {
-                    if utils::parse_begin(&mut message, &kind.to_string()) {
+                    if crate::messages::utils::parse_begin(&mut message, &kind.to_string()) {
                         return Ok(Event {
                             scope,
                             kind,
-                            payload: match utils::parse_payload(&mut message) {
+                            payload: match crate::messages::utils::parse_payload(&mut message) {
                                 Ok(v) => v,
                                 Err(_) => return err,
                             }
@@ -89,7 +86,7 @@ impl Event {
 
 impl std::fmt::Display for Event {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        utils::write_vec(f, vec![
+        crate::messages::utils::write_vec(f, vec![
             "EVT".to_string(),
             self.scope.to_string(),
             self.kind.to_string(),

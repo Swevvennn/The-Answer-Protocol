@@ -1,5 +1,3 @@
-use crate::messages::utils;
-
 #[derive(Clone)]
 pub enum PayloadKind {
     String(String),
@@ -62,7 +60,7 @@ impl PayloadKind {
     pub fn key_value_from_string(s: &str) -> Result<Self, std::io::Error> {
         let parts: Vec<&str> = s.split("=").collect();
         if parts.len() != 2 {
-            return Err(utils::invalid_input("invalid key value"));
+            return Err(crate::utils::invalid_input("invalid key value"));
         }
         Ok(Self::KeyValue {
             key: Self::unescape(parts[0]),
@@ -73,7 +71,7 @@ impl PayloadKind {
     pub fn json_from_string(s: &str) -> Result<Self, std::io::Error> {
         match serde_json::from_str(s) {
             Ok(v) => Ok(Self::Json(v)),
-            Err(_) => Err(utils::invalid_input("invalid json")),
+            Err(_) => Err(crate::utils::invalid_input("invalid json")),
         }
     }
 
@@ -106,9 +104,26 @@ impl PayloadKind {
 impl std::fmt::Display for PayloadKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::String(s) => write!(f, "{}", Self::escape(s)),
-            Self::KeyValue { key, value } => write!(f, "{}={}", Self::escape(key), Self::escape(value)),
-            Self::Json(json) => write!(f, "{}", serde_json::to_string(&json).map_err(|_| std::fmt::Error)?),
+            Self::String(s) => write!(
+                f,
+                "{}",
+                Self::escape(s),
+            ),
+            Self::KeyValue {
+                key,
+                value,
+            } => write!(
+                f,
+                "{}={}",
+                Self::escape(key),
+                Self::escape(value),
+            ),
+            Self::Json(json) => write!(
+                f,
+                "{}",
+                serde_json::to_string(&json)
+                    .map_err(|_| std::fmt::Error)?,
+            ),
         }
     }
 }
@@ -165,7 +180,7 @@ impl Payload {
             };
             payload.args.push(match kind {
                 Ok(v) => v,
-                Err(_) => return Err(utils::invalid_input("invalid payload")),
+                Err(_) => return Err(crate::utils::invalid_input("invalid payload")),
             });
             i = j + 1;
         }
@@ -247,6 +262,6 @@ impl std::fmt::Display for Payload {
         for arg in &self.args {
             v.push(arg.to_string());
         }
-        utils::write_vec(f, v)
+        crate::messages::utils::write_vec(f, v)
     }
 }

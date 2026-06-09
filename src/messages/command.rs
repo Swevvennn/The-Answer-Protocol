@@ -1,9 +1,5 @@
 use strum::IntoEnumIterator;
 
-use crate::messages::Payload;
-// use crate::messages::PayloadPattern;
-use crate::messages::utils;
-
 #[derive(strum_macros::EnumIter)]
 pub enum CommandKind {
     Attack,
@@ -53,30 +49,30 @@ impl std::fmt::Display for CommandKind {
 
 pub struct Command {
     pub kind: CommandKind,
-    pub payload: Payload,
+    pub payload: crate::messages::Payload,
 }
 
 impl Command {
     pub fn from_string(s: &str) -> Result<Command, std::io::Error> {
         let mut message = s.to_string();
         for kind in CommandKind::iter() {
-            if utils::parse_begin(&mut message, &kind.to_string()) {
+            if crate::messages::utils::parse_begin(&mut message, &kind.to_string()) {
                 return Ok(Command {
                     kind,
-                    payload: match utils::parse_payload(&mut message) {
+                    payload: match crate::messages::utils::parse_payload(&mut message) {
                         Ok(v) => v,
-                        Err(_) => return Err(utils::invalid_input("invalid command")),
+                        Err(_) => return Err(crate::utils::invalid_input("invalid command")),
                     }
                 });
             }
         }
-        Err(utils::invalid_input("invalid command"))
+        Err(crate::utils::invalid_input("invalid command"))
     }
 }
 
 impl std::fmt::Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        utils::write_vec(f, vec![
+        crate::messages::utils::write_vec(f, vec![
             self.kind.to_string(),
             self.payload.to_string(),
         ])

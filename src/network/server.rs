@@ -1,5 +1,3 @@
-use crate::network::Client;
-
 pub enum ServerState {
     Binded,
     Disconnected,
@@ -43,10 +41,10 @@ impl Server {
         Ok(())
     }
 
-    pub async fn accept(&mut self) -> Result<Client, std::io::Error> {
+    pub async fn accept(&mut self) -> Result<crate::network::Client, std::io::Error> {
         match &self.listener {
             Some(listener) => match listener.accept().await {
-                Ok((stream, addr)) => Ok(Client::new(addr, stream)),
+                Ok((stream, addr)) => Ok(crate::network::Client::new(addr, stream)),
                 Err(e) => {
                     self.close();
                     Err(std::io::Error::new(
