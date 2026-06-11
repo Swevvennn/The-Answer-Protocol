@@ -8,20 +8,33 @@ pub enum PayloadKind {
     Json(serde_json::Value),
 }
 
+pub trait PayloadKeyword {
+    fn set_str(&mut self, s: &str) -> Result<(), std::io::Error>;
+}
+
+impl<T: std::str::FromStr<Err = std::io::Error>> PayloadKeyword for T {
+    fn set_str(&mut self, s: &str) -> Result<(), std::io::Error> {
+        match T::from_str(s) {
+            Ok(v) => {
+                *self = v;
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
+    }
+}
+
 pub trait PayloadJson {
     fn set_json(&mut self, value: &serde_json::Value) -> Result<(), std::io::Error>;
 }
 
-impl<T> PayloadJson for T
-where
-    T: serde::de::DeserializeOwned,
-{
+impl<T: serde::de::DeserializeOwned> PayloadJson for T {
     fn set_json(&mut self, value: &serde_json::Value) -> Result<(), std::io::Error> {
         match serde_json::from_value(value.clone()) {
             Ok(v) => {
                 *self = v;
                 Ok(())
-            },
+            }
             Err(e) => Err(e.into()),
         }
     }
@@ -29,6 +42,7 @@ where
 
 pub enum PayloadExtractor<'a> {
     String(&'a mut String),
+    Keyword(&'a mut dyn PayloadKeyword),
     KeyValue {
         key: &'a mut String,
         value: &'a mut String,
@@ -144,54 +158,6 @@ impl Payload {
         self.args.is_empty()
     }
 
-    pub fn from_str(s: &str) -> Result<Self, std::io::Error> {
-        let mut payload = Self { args: Vec::new() };
-        let mut escaped = false;
-        let mut i: usize = 0;
-        let chars: Vec<char> = s.chars().collect();
-        while i < chars.len() {
-            let mut j = i;
-            let mut t: i8 = 0;
-            let mut level = 0;
-            let mut in_string = false;
-            while j < chars.len() {
-                if !escaped {
-                    if chars[j] == '\\' && (t != 2 || in_string) {
-                        escaped = true;
-                    } else if chars[j] == ' ' && (t != 2 || level == 0) {
-                        break;
-                    } else if chars[j] == '=' {
-                        t += 1;
-                    } else if matches!(chars[j], '{' | '}' | '[' | ']') {
-                        t = 2;
-                        if !in_string {
-                            if matches!(chars[j], '{' | '[') {
-                                level += 1;
-                            } else {
-                                level -= 1;
-                            }
-                        }
-                    } else if t == 2 && chars[j] == '"' {
-                        in_string = !in_string;
-                    }
-                }
-                j += 1;
-            }
-            let arg: String = chars[i..j].iter().collect();
-            let kind = match t {
-                1 => PayloadKind::key_value_from_str(&arg),
-                2 => PayloadKind::json_from_str(&arg),
-                _ => PayloadKind::string_from_str(&arg),
-            };
-            payload.args.push(match kind {
-                Ok(v) => v,
-                Err(_) => return Err(crate::utils::invalid_input("invalid payload")),
-            });
-            i = j + 1;
-        }
-        Ok(payload)
-    }
-
     pub fn extract(&self, dest: &mut [PayloadExtractor<'_>]) -> Result<(), std::io::Error> {
         if dest.len() != self.args.len() {
             return Err(std::io::Error::other(format!(
@@ -214,6 +180,18 @@ impl Payload {
                             i + 1,
                             dest,
                             src,
+                        )));
+                    }
+                }
+                (
+                    PayloadKind::String(src),
+                    PayloadExtractor::Keyword(dest),
+                ) => {
+                    if let Err(e) = dest.set_str(src) {
+                        return Err(std::io::Error::other(format!(
+                            "invalid keyword argument {}: {}",
+                            i + 1,
+                            e,
                         )));
                     }
                 }
@@ -258,6 +236,58 @@ impl Payload {
             }
         }
         Ok(())
+    }
+}
+
+impl std::str::FromStr for Payload {
+    type Err = std::io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut payload = Self { args: Vec::new() };
+        let mut escaped = false;
+        let mut i: usize = 0;
+        let chars: Vec<char> = s.chars().collect();
+        while i < chars.len() {
+            let mut j = i;
+            let mut t: i8 = 0;
+            let mut level = 0;
+            let mut in_string = false;
+            while j < chars.len() {
+                if !escaped {
+                    if chars[j] == '\\' && (t != 2 || in_string) {
+                        escaped = true;
+                    } else if chars[j] == ' ' && (t != 2 || level == 0) {
+                        break;
+                    } else if chars[j] == '=' {
+                        t += 1;
+                    } else if matches!(chars[j], '{' | '}' | '[' | ']') {
+                        t = 2;
+                        if !in_string {
+                            if matches!(chars[j], '{' | '[') {
+                                level += 1;
+                            } else {
+                                level -= 1;
+                            }
+                        }
+                    } else if t == 2 && chars[j] == '"' {
+                        in_string = !in_string;
+                    }
+                }
+                j += 1;
+            }
+            let arg: String = chars[i..j].iter().collect();
+            let kind = match t {
+                1 => PayloadKind::key_value_from_str(&arg),
+                2 => PayloadKind::json_from_str(&arg),
+                _ => PayloadKind::string_from_str(&arg),
+            };
+            payload.args.push(match kind {
+                Ok(v) => v,
+                Err(_) => return Err(crate::utils::invalid_input(&format!("invalid payload '{s}'"))),
+            });
+            i = j + 1;
+        }
+        Ok(payload)
     }
 }
 

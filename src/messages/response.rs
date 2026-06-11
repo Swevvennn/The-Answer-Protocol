@@ -3,16 +3,18 @@ pub struct Response {
     pub payload: crate::messages::Payload,
 }
 
-impl Response {
-    pub fn from_str(s: &str) -> Result<Response, std::io::Error> {
+impl std::str::FromStr for Response {
+    type Err = std::io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut message = s.to_string();
         if !crate::messages::utils::parse_begin(&mut message, "OK") {
-            return Err(crate::utils::invalid_input("not a response"));
+            return Err(crate::utils::invalid_input(&format!("invalid response '{s}'")));
         }
-        Ok(Response {
+        Ok(Self {
             payload: match crate::messages::utils::parse_payload(&mut message) {
                 Ok(v) => v,
-                Err(_) => return Err(crate::utils::invalid_input("invalid response")),
+                Err(_) => return Err(crate::utils::invalid_input(&format!("invalid response '{s}'"))),
             }
         })
     }

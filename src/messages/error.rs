@@ -81,18 +81,6 @@ impl Error {
         }
     }
 
-    pub fn from_str(s: &str) -> Result<Error, std::io::Error> {
-        if !s.starts_with("ERR ") {
-            return Err(crate::utils::invalid_input("not an error"));
-        }
-        for kind in Error::iter() {
-            if s == kind.to_string() {
-                return Ok(kind);
-            }
-        }
-        Ok(Error::UnknownError)
-    }
-
     pub fn is_fatal(&self) -> bool {
         matches!(
             self,
@@ -102,6 +90,22 @@ impl Error {
             Self::UnexpectedServerResponse |
             Self::ServerTimeOut,
         )
+    }
+}
+
+impl std::str::FromStr for Error {
+    type Err = std::io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if !s.starts_with("ERR ") {
+            return Err(crate::utils::invalid_input(&format!("invalid error '{s}'")));
+        }
+        for kind in Error::iter() {
+            if s == kind.to_string() {
+                return Ok(kind);
+            }
+        }
+        Ok(Error::UnknownError)
     }
 }
 

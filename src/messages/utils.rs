@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::messages::Payload;
 
 pub fn write_vec(f: &mut std::fmt::Formatter<'_>, mut v: Vec<String>) -> std::fmt::Result {
@@ -30,9 +32,9 @@ pub fn parse_payload(s: &mut String) -> Result<Payload, std::io::Error> {
         Err(_) => return Err(crate::utils::invalid_input("invalid payload")),
     };
     if space {
-        match Payload::from_str(s) {
+        match Payload::from_str(&s) {
             Ok(v) => Ok(v),
-            Err(_) => Err(crate::utils::invalid_input("invalid payload")),
+            Err(e) => Err(e),
         }
     } else {
         Ok(Payload::default())

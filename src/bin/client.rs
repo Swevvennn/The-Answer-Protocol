@@ -272,6 +272,7 @@
 
 use clap::Parser;
 use std::io::Write;
+use std::str::FromStr;
 
 use tap::messages::{
     Command,

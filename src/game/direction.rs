@@ -14,14 +14,27 @@ pub enum Direction {
     West,
 }
 
-impl Direction {
-    pub fn from_str(s: &str) -> Result<Self, std::io::Error> {
+impl std::str::FromStr for Direction {
+    type Err = std::io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "east" => Ok(Self::East),
             "north" => Ok(Self::North),
             "south" => Ok(Self::South),
             "west" => Ok(Self::West),
-            _ => Err(std::io::Error::other(format!("unknown direction '{s}'"))),
+            _ => Err(crate::utils::invalid_input(&format!("invalid direction '{s}'"))),
+        }
+    }
+}
+
+impl std::fmt::Display for Direction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::East => write!(f, "east"),
+            Self::North => write!(f, "north"),
+            Self::South => write!(f, "south"),
+            Self::West => write!(f, "west"),
         }
     }
 }

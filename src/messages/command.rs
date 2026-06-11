@@ -63,8 +63,10 @@ pub struct Command {
     pub payload: crate::messages::Payload,
 }
 
-impl Command {
-    pub fn from_str(s: &str) -> Result<Command, std::io::Error> {
+impl std::str::FromStr for Command {
+    type Err = std::io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut message = s.to_string();
         for kind in CommandKind::iter() {
             if crate::messages::utils::parse_begin(&mut message, &kind.to_string()) {
@@ -72,12 +74,12 @@ impl Command {
                     kind,
                     payload: match crate::messages::utils::parse_payload(&mut message) {
                         Ok(v) => v,
-                        Err(_) => return Err(crate::utils::invalid_input("invalid command")),
+                        Err(_) => return Err(crate::utils::invalid_input(&format!("invalid command '{s}'"))),
                     }
                 });
             }
         }
-        Err(crate::utils::invalid_input("invalid command"))
+        Err(crate::utils::invalid_input(&format!("invalid command '{s}'")))
     }
 }
 

@@ -8,14 +8,16 @@ pub enum EventScope {
     Room,
 }
 
-impl EventScope {
-    pub fn from_str(s: &str) -> Result<Self, std::io::Error> {
+impl std::str::FromStr for EventScope {
+    type Err = std::io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "GLOBAL" => Ok(Self::Global),
             "GROUP" => Ok(Self::Group),
             "STATS" => Ok(Self::Stats),
             "ROOM" => Ok(Self::Room),
-            _ => Err(std::io::Error::other(format!("unknown scope '{s}'"))),
+            _ => Err(crate::utils::invalid_input(&format!("invalid scope '{s}'"))),
         }
     }
 }
@@ -63,13 +65,15 @@ pub struct Event {
     pub payload: crate::messages::Payload,
 }
 
-impl Event {
-    pub fn from_str(s: &str) -> Result<Event, std::io::Error> {
+impl std::str::FromStr for Event {
+    type Err = std::io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut message = s.to_string();
+        let err = Err(crate::utils::invalid_input(&format!("invalid event '{s}'")));
         if !crate::messages::utils::parse_begin(&mut message, "EVT") {
-            return Err(crate::utils::invalid_input("not an event"));
+            return err;
         }
-        let err = Err(crate::utils::invalid_input("invalid event"));
         if matches!(crate::messages::utils::skip_space(&mut message), Ok(false) | Err(_)) {
             return err;
         }
