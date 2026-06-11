@@ -20,6 +20,7 @@ pub enum Error {
     NoQuestAvailable,
     ConnectionFailed,
     SendFailed,
+    ConnectionClosed,
     UnexpectedServerResponse,
     ServerTimeOut,
     ServerError,
@@ -46,9 +47,10 @@ impl Error {
             Self::NoQuestAvailable => 406,
             Self::ConnectionFailed => 900,
             Self::SendFailed => 901,
-            Self::UnexpectedServerResponse => 902,
-            Self::ServerTimeOut => 903,
-            Self::ServerError => 904,
+            Self::ConnectionClosed => 902,
+            Self::UnexpectedServerResponse => 903,
+            Self::ServerTimeOut => 904,
+            Self::ServerError => 905,
         }
     }
 
@@ -72,6 +74,7 @@ impl Error {
             Self::NoQuestAvailable => "NO_QUEST_AVAILABLE",
             Self::ConnectionFailed => "CONNECTION_FAILED",
             Self::SendFailed => "SEND_FAILED",
+            Self::ConnectionClosed => "CONNECTION_CLOSED",
             Self::UnexpectedServerResponse => "UNEXPECTED_SERVER_RESPONSE",
             Self::ServerTimeOut => "SERVER_TIME_OUT",
             Self::ServerError => "SERVER_ERROR",
@@ -95,6 +98,7 @@ impl Error {
             self,
             Self::ConnectionFailed |
             Self::SendFailed |
+            Self::ConnectionClosed |
             Self::UnexpectedServerResponse |
             Self::ServerTimeOut,
         )

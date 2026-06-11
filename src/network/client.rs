@@ -105,51 +105,39 @@ impl Reader {
         self.reader = None;
     }
 
-    pub async fn read(&mut self) -> Result<Option<crate::messages::Message>, std::io::Error> {
-        match self.extract_message() {
-            Ok(None) => (),
-            r => return r,
-        };
-        let mut buffer = [0u8; 1024];
-        match &mut self.reader {
-            Some(reader) => {
-                let n = reader.lock().await.read(&mut buffer).await;
-                match n {
-                    Ok(0) => {
-                        self.close();
-                        Err(std::io::Error::new(
-                            std::io::ErrorKind::ConnectionAborted,
-                            "read failed: connection closed",
-                        ))
-                    }
-                    Ok(v) => {
-                        self.buffer += &String::from_utf8_lossy(&buffer[..v]);
-                        self.extract_message()
-                    },
-                    Err(e) => {
-                        self.close();
-                        Err(std::io::Error::new(
-                            e.kind(),
-                            format!("read failed: {e}"),
-                        ))
+    pub async fn read(&mut self) -> Result<Option<String>, std::io::Error> {
+        loop {
+            match self.buffer.find('\n') {
+                Some(v) => {
+                    let message = self.buffer.drain(..v).collect::<String>();
+                    self.buffer.remove(0);
+                    return Ok(Some(message));
+                }
+                None => (),
+            }
+            let mut buffer = [0u8; 1024];
+            match &mut self.reader {
+                Some(reader) => {
+                    let n = reader.lock().await.read(&mut buffer).await;
+                    match n {
+                        Ok(0) => {
+                            self.close();
+                            return Ok(None);
+                        }
+                        Ok(v) => {
+                            self.buffer += &String::from_utf8_lossy(&buffer[..v]);
+                        },
+                        Err(e) => {
+                            self.close();
+                            return Err(std::io::Error::new(
+                                e.kind(),
+                                format!("read failed: {e}"),
+                            ))
+                        }
                     }
                 }
+                None => return Err(std::io::Error::other("not connected"))
             }
-            None => Err(std::io::Error::other("not connected"))
-        }
-    }
-
-    fn extract_message(&mut self) -> Result<Option<crate::messages::Message>, std::io::Error> {
-        match self.buffer.find('\n') {
-            Some(v) => {
-                let message = self.buffer.drain(..v).collect::<String>();
-                self.buffer.remove(0);
-                match crate::messages::Message::from_str(&message) {
-                    Ok(v) => Ok(Some(v)),
-                    Err(e) => Err(std::io::Error::other(format!("message parsing failed: '{message}': {e}"))),
-                }
-            }
-            None => Ok(None),
         }
     }
 }

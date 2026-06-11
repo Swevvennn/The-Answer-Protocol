@@ -114,34 +114,39 @@ impl Cli {
                         client.addr,
                         message,
                     )).await;
-                    if let Message::Command(command) = message {
-                        if command.kind.requires_auth() && !matches!(client.state, tap::network::ClientState::Authenticated) {
-                            Self::send_to(&client, &username, &Message::Error(Error::NotAuthenticated)).await;
-                        } else if matches!(command.kind, CommandKind::Connect) && matches!(client.state, tap::network::ClientState::Authenticated) {
-                            Self::send_to(&client, &username, &Message::Error(Error::AlreadyAuthenticated)).await;
-                        } else {
-                            let mut game = game.lock().await;
-                            let message = Self::process_command(&mut client, &mut username, &mut game, &command).await;
-                            Self::send_to(&client, &username, &message).await;
-                            if let Message::Response(response) = message && (
-                                client.is_open() &&
-                                response.payload.args.len() == 1 &&
-                                if let PayloadKind::String(s) = &response.payload.args[0] {
-                                    s == "bye"
-                                } else {
-                                    false
+                    match Message::from_str(&message) {
+                        Ok(Message::Command(command)) => {
+                            if command.kind.requires_auth() && !matches!(client.state, tap::network::ClientState::Authenticated) {
+                                Self::send_to(&client, &username, &Message::Error(Error::NotAuthenticated)).await;
+                            } else if matches!(command.kind, CommandKind::Connect) && matches!(client.state, tap::network::ClientState::Authenticated) {
+                                Self::send_to(&client, &username, &Message::Error(Error::AlreadyAuthenticated)).await;
+                            } else {
+                                let mut game = game.lock().await;
+                                let message = Self::process_command(&mut client, &mut username, &mut game, &command).await;
+                                Self::send_to(&client, &username, &message).await;
+                                if let Message::Response(response) = message && (
+                                    client.is_open() &&
+                                    response.payload.args.len() == 1 &&
+                                    if let PayloadKind::String(s) = &response.payload.args[0] {
+                                        s == "bye"
+                                    } else {
+                                        false
+                                    }
+                                ) {
+                                    client.close();
                                 }
-                            ) {
-                                client.close();
                             }
                         }
-                    } else {
-                        Self::send_to(&client, &username, &Message::Error(Error::NotACommand)).await;
-                    }
+                        _ => Self::send_to(&client, &username, &Message::Error(Error::NotACommand)).await,
+                    };
                 }
-                Ok(None) => (),
+                Ok(None) => break,
                 Err(e) => {
-                    Logger::error(&format!("{e}")).await;
+                    Logger::error(&format!(
+                        "client \x1b[36m{}\x1b[0m: {}",
+                        client.addr,
+                        e,
+                    )).await;
                     if client.is_open() {
                         Self::send_to(&client, &username, &Message::Error(Error::NotACommand)).await;
                     } else {

@@ -425,31 +425,27 @@ impl Cli {
                 }
                 message = self.client.reader.read() => {
                     match message {
-                        Ok(Some(message)) => {
-                            self.waiter.end();
-                            match message {
-                                Message::Error(error) => Some(error),
-                                Message::Response(response) => {
-                                    let r = self.process_response(&response);
-                                    print_out(&self, &response.to_string());
-                                    r
+                        Ok(Some(message)) => match Message::from_str(&message) {
+                            Ok(message) => {
+                                self.waiter.end();
+                                match message {
+                                    Message::Error(error) => Some(error),
+                                    Message::Response(response) => {
+                                        let r = self.process_response(&response);
+                                        print_out(&self, &response.to_string());
+                                        r
+                                    }
+                                    Message::Event(event) => {
+                                        print_out(&self, &event.to_string());
+                                        None
+                                    }
+                                    Message::Command(_) => Some(Error::UnexpectedServerResponse),
                                 }
-                                Message::Event(event) => {
-                                    print_out(&self, &event.to_string());
-                                    None
-                                }
-                                Message::Command(_) => Some(Error::UnexpectedServerResponse),
                             }
+                            Err(_) => Some(Error::UnexpectedServerResponse),
                         }
-                        Ok(None) => None,
-                        Err(e) => {
-                            print_out(&self, &format!("caca boudin prout miaou: {e}"));
-                            if self.client.is_open() {
-                                break;
-                            } else {
-                                Some(Error::UnexpectedServerResponse)
-                            }
-                        }
+                        Ok(None) => break,
+                        Err(_) => Some(Error::ConnectionClosed),
                     }
                 }
             } {
