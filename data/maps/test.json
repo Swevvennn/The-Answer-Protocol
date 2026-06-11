@@ -1,0 +1,41 @@
+{
+    "start": "room.start",
+    "rooms": [
+        {
+            "id": "room.start",
+            "name": "Starting point",
+            "description": "blablabla",
+            "exits": {
+                "north": "room.0",
+                "east": "room.2"
+            }
+        },
+        {
+            "id": "room.0",
+            "name": "Room 0",
+            "description": "blablabla",
+            "exits": {
+                "south": "room.start",
+                "east": "room.1"
+            }
+        },
+        {
+            "id": "room.1",
+            "name": "Room 1",
+            "description": "blablabla",
+            "exits": {
+                "south": "room.2",
+                "west": "room.0"
+            }
+        },
+        {
+            "id": "room.2",
+            "name": "Room 2",
+            "description": "blablabla",
+            "exits": {
+                "north": "room.1",
+                "west": "room.start"
+            }
+        }
+    ]
+}

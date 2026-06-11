@@ -13,3 +13,6 @@ pub use player::Player;
 mod room;
 pub use room::Room;
 pub use room::RoomState;
+
+mod world;
+pub use world::World;

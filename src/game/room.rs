@@ -18,6 +18,6 @@ pub struct Room {
 pub struct RoomState {
     pub room: Room,
     pub players: Vec<String>,
-    pub items: Vec<String>,
-    pub npcs: Vec<String>,
+    // pub items: Vec<String>,
+    // pub npcs: Vec<String>,
 }

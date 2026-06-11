@@ -1,6 +1,6 @@
 use strum::IntoEnumIterator;
 
-#[derive(strum_macros::EnumIter)]
+#[derive(Clone, strum_macros::EnumIter)]
 pub enum CommandKind {
     Attack,
     Chat,
@@ -20,6 +20,16 @@ pub enum CommandKind {
     Take,
     Talk,
     Who,
+}
+
+impl CommandKind {
+    pub fn requires_auth(&self) -> bool {
+        !matches!(
+            self,
+            Self::Connect |
+            Self::Quit,
+        )
+    }
 }
 
 impl std::fmt::Display for CommandKind {
@@ -47,6 +57,7 @@ impl std::fmt::Display for CommandKind {
     }
 }
 
+#[derive(Clone)]
 pub struct Command {
     pub kind: CommandKind,
     pub payload: crate::messages::Payload,

@@ -1,6 +1,6 @@
 use strum::IntoEnumIterator;
 
-#[derive(strum_macros::EnumIter)]
+#[derive(Clone, strum_macros::EnumIter)]
 pub enum EventScope {
     Global,
     Group,
@@ -19,7 +19,7 @@ impl std::fmt::Display for EventScope {
     }
 }
 
-#[derive(strum_macros::EnumIter)]
+#[derive(Clone, strum_macros::EnumIter)]
 pub enum EventKind {
     Chat,
     Invite,
@@ -44,6 +44,7 @@ impl std::fmt::Display for EventKind {
     }
 }
 
+#[derive(Clone)]
 pub struct Event {
     pub scope: EventScope,
     pub kind: EventKind,

@@ -128,9 +128,9 @@ impl std::fmt::Display for PayloadKind {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Payload {
-    args: Vec<PayloadKind>,
+    pub args: Vec<PayloadKind>,
 }
 
 impl Payload {

@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub enum Message {
     Command(crate::messages::Command),
     Error(crate::messages::Error),

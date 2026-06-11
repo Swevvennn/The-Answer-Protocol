@@ -99,3 +99,25 @@ fn main() {
     //     Err(e) => println!("Error: {e}"),
     // }
 }
+
+
+// async fn run_client() {}
+
+// #[tokio::main]
+// async fn main() {
+//     let mut server = tap::network::Server::default();
+//     server.addr = "127.0.0.1:7373".to_string();
+//     server.bind().await.unwrap();
+
+//     let mut clients: Vec<std::sync::Arc<tap::network::Client>> = vec![];
+
+//     loop {
+//         let client = std::sync::Arc::new(server.accept().await.unwrap());
+//         clients.push(client.clone());
+//         tokio::spawn(async move {
+//             loop {
+//                 let message = client.read().await.unwrap();
+//             }
+//         });
+//     }
+// }

@@ -21,6 +21,14 @@ pub struct Server {
 }
 
 impl Server {
+    pub fn new(addr: &str) -> Self {
+        Self {
+            state: ServerState::Disconnected,
+            addr: addr.to_string(),
+            listener: None,
+        }
+    }
+
     pub fn close(&mut self) {
         self.state = ServerState::Terminated;
         self.listener = None;
@@ -58,7 +66,7 @@ impl Server {
     }
 }
 
-impl Default for Server {    
+impl Default for Server {
     fn default() -> Self {
         Self {
             state: ServerState::Disconnected,

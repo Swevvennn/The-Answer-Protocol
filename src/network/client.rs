@@ -21,6 +21,7 @@ impl std::fmt::Display for ClientState {
 pub struct Client {
     pub state: ClientState,
     pub addr: String,
+    pub proto: String,
     stream: Option<tokio::net::TcpStream>,
     buffer: String,
 }
@@ -30,9 +31,14 @@ impl Client {
         Self {
             state: ClientState::Connected,
             addr: addr.to_string(),
+            proto: "1".to_string(),
             stream: Some(stream),
             buffer: String::new(),
         }
+    }
+
+    pub fn is_open(&self) -> bool {
+        self.stream.is_some()
     }
 
     pub fn close(&mut self) {
@@ -59,32 +65,28 @@ impl Client {
     pub async fn read(&mut self) -> Result<Option<crate::messages::Message>, std::io::Error> {
         match self.extract_message() {
             Ok(None) => (),
-            Err(e) => {
-                self.close();
-                return Err(e);
-            }
             r => return r,
         };
         let mut buffer = [0u8; 1024];
         match &mut self.stream {
-            Some(stream) => match match stream.read(&mut buffer).await {
-                Ok(0) => Err(std::io::Error::new(
-                    std::io::ErrorKind::ConnectionAborted,
-                    "read failed: connection closed",
-                )),
+            Some(stream) => match stream.read(&mut buffer).await {
+                Ok(0) => {
+                    self.close();
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::ConnectionAborted,
+                        "read failed: connection closed",
+                    ))
+                }
                 Ok(v) => {
                     self.buffer += &String::from_utf8_lossy(&buffer[..v]);
                     self.extract_message()
                 },
-                Err(e) => Err(std::io::Error::new(
-                    e.kind(),
-                    format!("read failed: {e}"),
-                )),
-            } {
-                Ok(v) => Ok(v),
                 Err(e) => {
                     self.close();
-                    Err(e)
+                    Err(std::io::Error::new(
+                        e.kind(),
+                        format!("read failed: {e}"),
+                    ))
                 }
             }
             None => Err(std::io::Error::other("not connected"))
@@ -128,6 +130,7 @@ impl Default for Client {
         Self {
             state: ClientState::Disconnected,
             addr: String::new(),
+            proto: String::new(),
             stream: None,
             buffer: String::new(),
         }

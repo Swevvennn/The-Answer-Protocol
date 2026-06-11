@@ -1,4 +1,4 @@
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Response {
     pub payload: crate::messages::Payload,
 }
