@@ -27,8 +27,21 @@ impl Player {
         self.command.is_some()
     }
 
+    pub async fn send_message(&mut self, message: &crate::messages::Message) {
+        crate::cli::logger::log_to_client(self, message).await;
+        let _ = self.client.write_message(message).await;
+    }
+
+    pub async fn receive_message(&mut self) -> Result<Option<crate::messages::Message>, std::io::Error> {
+        let message = self.client.read().await;
+        if let Ok(Some(message)) = &message {
+            crate::cli::logger::log_from_client(self, &message).await;
+        }
+        message
+    }
+
     pub async fn run(&mut self, game: crate::utils::Shared<crate::game::Game>) {
-        let _ = self.client.write_message(&crate::messages::Message::Response(crate::messages::Response {
+        self.send_message(&crate::messages::Message::Response(crate::messages::Response {
             payload: crate::messages::Payload::new(&[
                 crate::messages::PayloadKind::String("hello".to_string()),
                 crate::messages::PayloadKind::KeyValue {
@@ -38,17 +51,17 @@ impl Player {
             ])
         })).await;
         loop {
-            match self.client.read().await {
+            match self.receive_message().await {
                 Ok(Some(message)) => {
                     if let crate::messages::Message::Command(command) = message {
                         if command.kind.requires_auth() && !matches!(self.client.state, crate::network::ClientState::Authenticated) {
-                            let _ = self.client.write_message(&crate::messages::Message::Error(crate::messages::Error::NotAuthenticated)).await;
+                            self.send_message(&crate::messages::Message::Error(crate::messages::Error::NotAuthenticated)).await;
                         } else if matches!(command.kind, crate::messages::CommandKind::Connect) && matches!(self.client.state, crate::network::ClientState::Authenticated) {
-                            let _ = self.client.write_message(&crate::messages::Message::Error(crate::messages::Error::AlreadyAuthenticated)).await;
+                            self.send_message(&crate::messages::Message::Error(crate::messages::Error::AlreadyAuthenticated)).await;
                         } else {
                             let game = game.lock().await;
                             let message = self.process_command(&game, &command).await;
-                            let _ = self.client.write_message(&message).await;
+                            self.send_message(&message).await;
                             if let crate::messages::Message::Response(response) = message && (
                                 self.client.is_open() &&
                                 response.payload.args.len() == 1 &&
@@ -62,13 +75,13 @@ impl Player {
                             }
                         }
                     } else {
-                        let _ = self.client.write_message(&crate::messages::Message::Error(crate::messages::Error::NotACommand)).await;
+                        self.send_message(&crate::messages::Message::Error(crate::messages::Error::NotACommand)).await;
                     }
                 }
                 Ok(None) => (),
                 Err(_) => {
                     if self.client.is_open() {
-                        let _ = self.client.write_message(&crate::messages::Message::Error(crate::messages::Error::NotACommand)).await;
+                        self.send_message(&crate::messages::Message::Error(crate::messages::Error::NotACommand)).await;
                     } else {
                         break;
                     }

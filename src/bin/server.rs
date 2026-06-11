@@ -252,16 +252,16 @@ impl Cli {
             server: tap::network::Server::new(&format!("{ip}:{port}")),
             game: tap::utils::Shared::new(tap::game::Game::new(world)),
         };
+        cli.server.bind().await?;
+        tap::cli::logger::info(&format!("Server listening at \x1b[36m{}\x1b[0m", cli.server.addr)).await;
         cli.run().await
     }
 
     pub async fn run(&mut self) -> Result<(), std::io::Error> {
-        self.server.bind().await?;
-        println!("Server listening at {}", self.server.addr);
         loop {
             tokio::select! {
                 _ = tokio::signal::ctrl_c() => {
-                    eprintln!("Interrupted");
+                    tap::cli::logger::error("Interrupted").await;
                     self.server.close();
                     break;
                 }
@@ -271,7 +271,15 @@ impl Cli {
                             let game = self.game.clone();
                             let mut player = tap::game::Player::new(client);
                             tokio::spawn(async move {
+                                tap::cli::logger::info(&format!(
+                                    "New client connected (\x1b[36m{}\x1b[0m)",
+                                    player.client.addr,
+                                )).await;
                                 player.run(game).await;
+                                tap::cli::logger::info(&format!(
+                                    "Client \x1b[36m{}\x1b[0m disconnected",
+                                    player.client.addr,
+                                )).await;
                             });
                         }
                         Err(e) => return Err(e),
@@ -279,7 +287,7 @@ impl Cli {
                 }
             };
         }
-        println!("Server disconnected");
+        tap::cli::logger::info("Server disconnected").await;
         Ok(())
     }
 }
@@ -289,7 +297,7 @@ async fn main() {
     // tap::cli::run::<Cli>().await;
     match Cli::start().await {
         Ok(_) => (),
-        Err(e) => eprintln!("Error: {e}"),
+        Err(e) => tap::cli::logger::error(&format!("{e}")).await,
     };
 }
 

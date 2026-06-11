@@ -4,9 +4,11 @@ pub use input::InputEvent;
 pub use input::KeyCode;
 pub use input::KeyModifiers;
 
-mod messages;
-pub use messages::Message;
-pub use messages::Messages;
+pub mod logger;
+
+// mod messages;
+// pub use messages::Message;
+// pub use messages::Messages;
 
 // mod terminal;
 // pub use terminal::KeyCode;
