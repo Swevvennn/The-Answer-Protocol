@@ -273,6 +273,21 @@
 use clap::Parser;
 use std::io::Write;
 
+use tap::messages::{
+    Command,
+    CommandKind,
+    Error,
+    Event,
+    EventKind,
+    EventScope,
+    Message,
+    Payload,
+    PayloadExtractor,
+    PayloadJson,
+    PayloadKind,
+    Response,
+};
+
 #[derive(Parser)]
 #[command(about = "A Multi-User Dungeon client which use the TAP protocol")]
 struct Args {
@@ -292,11 +307,13 @@ struct Args {
 struct Cli {
     waiter: tap::utils::Waiter,
     input: tap::cli::Input,
+    client: tap::network::Client,
     player: tap::game::Player,
+    command: Option<Command>,
 }
 
 impl Cli {
-    pub async fn start() -> Option<tap::messages::Error> {
+    pub async fn start() -> Option<Error> {
         let args = Args::parse();
         let ip = match args.ip {
             Some(v) => v,
@@ -309,11 +326,13 @@ impl Cli {
         let mut cli = Cli {
             waiter: tap::utils::Waiter::default(),
             input: tap::cli::Input::new(),
+            client: tap::network::Client::default(),
             player: tap::game::Player::default(),
+            command: None,
         };
-        cli.player.client.addr = format!("{ip}:{port}");
-        if let Err(_) = cli.player.client.connect().await {
-            return Some(tap::messages::Error::ConnectionFailed);
+        cli.client.addr = format!("{ip}:{port}");
+        if let Err(_) = cli.client.connect().await {
+            return Some(Error::ConnectionFailed);
         }
         cli.waiter.begin(3);
         if args.raw {
@@ -323,7 +342,7 @@ impl Cli {
         }
     }
 
-    pub async fn run_raw(&mut self) -> Option<tap::messages::Error> {
+    async fn run_raw(&mut self) -> Option<Error> {
         fn clear_line() {
             let _ = crossterm::execute!(
                 std::io::stdout(),
@@ -338,8 +357,8 @@ impl Cli {
                 std::io::stdout(),
                 crossterm::style::Print(format!(
                     "[{} proto={}] {}: ",
-                    cli.player.client.addr,
-                    if cli.player.client.proto.is_empty() { "?" } else { &cli.player.client.proto },
+                    cli.client.addr,
+                    cli.client.proto,
                     if cli.player.username.is_empty() { "?" } else { &cli.player.username },
                 )),
                 crossterm::style::Print(&cli.input.input),
@@ -358,7 +377,7 @@ impl Cli {
             let _ = std::io::stdout().flush();
         }
 
-        fn print_err(cli: &Cli, error: &tap::messages::Error) {
+        fn print_err(cli: &Cli, error: &Error) {
             clear_line();
             let _ = crossterm::execute!(
                 std::io::stderr(),
@@ -372,19 +391,27 @@ impl Cli {
         print_input(&self);
         loop {
             match tokio::select! {
-                _ = self.waiter.wait() => Some(tap::messages::Error::ServerTimeOut),
+                _ = self.waiter.wait() => Some(Error::ServerTimeOut),
                 event = self.input.read() => {
                     match event {
                         Some(event) => match event {
                             tap::cli::InputEvent::Interrupted => return None,
                             tap::cli::InputEvent::Validate if !self.input.input.is_empty() && !self.waiter.is_waiting() => {
                                 print_out(&self, &self.input.input);
-                                match tap::messages::Command::from_str(&self.input.consume()) {
+                                match Command::from_str(&self.input.consume()) {
                                     Ok(command) => {
                                         self.waiter.begin(3);
-                                        self.player.send_command(command).await
+                                        self.command = Some(command.clone());
+                                        if let Some(writer) = &self.client.writer {
+                                            match writer.write_message(&Message::Command(command)).await {
+                                                Ok(_) => None,
+                                                Err(_) => Some(Error::SendFailed),
+                                            }
+                                        } else {
+                                            Some(Error::SendFailed)
+                                        }
                                     }
-                                    Err(_) => Some(tap::messages::Error::NotACommand),
+                                    Err(_) => Some(Error::NotACommand),
                                 }
                             }
                             tap::cli::InputEvent::Input => {
@@ -396,22 +423,33 @@ impl Cli {
                         _ => None,
                     }
                 }
-                message = self.player.client.read() => {
+                message = self.client.reader.read() => {
                     match message {
                         Ok(Some(message)) => {
                             self.waiter.end();
                             match message {
-                                tap::messages::Message::Error(error) => Some(error),
-                                tap::messages::Message::Response(response) => {
-                                    let r = self.player.process_response(&response);
+                                Message::Error(error) => Some(error),
+                                Message::Response(response) => {
+                                    let r = self.process_response(&response);
                                     print_out(&self, &response.to_string());
                                     r
                                 }
-                                _ => None,
+                                Message::Event(event) => {
+                                    print_out(&self, &event.to_string());
+                                    None
+                                }
+                                Message::Command(_) => Some(Error::UnexpectedServerResponse),
                             }
                         }
                         Ok(None) => None,
-                        Err(_) => break,
+                        Err(e) => {
+                            print_out(&self, &format!("caca boudin prout miaou: {e}"));
+                            if self.client.is_open() {
+                                break;
+                            } else {
+                                Some(Error::UnexpectedServerResponse)
+                            }
+                        }
                     }
                 }
             } {
@@ -429,14 +467,50 @@ impl Cli {
         None
     }
 
-    pub async fn run_friendly(&mut self) -> Option<tap::messages::Error> {
+    async fn run_friendly(&mut self) -> Option<Error> {
+        None
+    }
+
+    fn process_response(&mut self, response: &Response) -> Option<Error> {
+        match &self.command {
+            Some(command) => match command.kind {
+                CommandKind::Connect => match response.payload.extract(&mut [
+                    PayloadExtractor::String(&mut "connected".to_string()),
+                ]) {
+                    Ok(_) => {
+                        self.client.state = tap::network::ClientState::Authenticated;
+                        self.player.username.clear();
+                        if let Err(_) = command.payload.extract(&mut [
+                            PayloadExtractor::String(&mut self.player.username),
+                        ]) {
+                            return Some(Error::UnexpectedServerResponse);
+                        }
+                    },
+                    Err(_) => return Some(Error::UnexpectedServerResponse),
+                }
+                _ => (),
+            }
+            None => {
+                self.client.proto.clear();
+                match response.payload.extract(&mut [
+                    PayloadExtractor::String(&mut "hello".to_string()),
+                    PayloadExtractor::KeyValue {
+                        key: &mut "proto".to_string(),
+                        value: &mut self.client.proto,
+                    }
+                ]) {
+                    Ok(_) => (),
+                    Err(_) => return Some(Error::UnexpectedServerResponse),
+                }
+            },
+        };
+        self.command = None;
         None
     }
 }
 
 #[tokio::main]
 async fn main() {
-    // tap::cli::run::<Cli>().await;
     match Cli::start().await {
         Some(e) => eprintln!("{e}"),
         None => (),

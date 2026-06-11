@@ -1,5 +1,20 @@
 use clap::Parser;
 
+use tap::messages::{
+    Command,
+    CommandKind,
+    Error,
+    Event,
+    EventKind,
+    EventScope,
+    Message,
+    Payload,
+    PayloadExtractor,
+    PayloadJson,
+    PayloadKind,
+    Response,
+};
+
 #[derive(Parser)]
 #[command(about = "A Multi-User Dungeon server which use the TAP protocol")]
 struct Args {
@@ -16,7 +31,7 @@ struct Args {
 
 struct Cli {
     server: tap::network::Server,
-    game: tap::utils::Shared<tap::game::Game>,
+    game: tap::utils::Shared<tap::game::GameState>,
 }
 
 impl Cli {
@@ -39,18 +54,18 @@ impl Cli {
         };
         let mut cli = Cli {
             server: tap::network::Server::new(&format!("{ip}:{port}")),
-            game: tap::utils::Shared::new(tap::game::Game::new(world)),
+            game: tap::utils::Shared::new(tap::game::GameState::new(world)),
         };
         cli.server.bind().await?;
-        tap::cli::logger::info(&format!("Server listening at \x1b[36m{}\x1b[0m", cli.server.addr)).await;
+        Logger::info(&format!("Server listening at \x1b[36m{}\x1b[0m", cli.server.addr)).await;
         cli.run().await
     }
 
-    pub async fn run(&mut self) -> Result<(), std::io::Error> {
+    async fn run(&mut self) -> Result<(), std::io::Error> {
         loop {
             tokio::select! {
                 _ = tokio::signal::ctrl_c() => {
-                    tap::cli::logger::error("Interrupted").await;
+                    Logger::error("Interrupted").await;
                     self.server.close();
                     break;
                 }
@@ -58,17 +73,8 @@ impl Cli {
                     match res {
                         Ok(client) => {
                             let game = self.game.clone();
-                            let mut player = tap::game::Player::new(client);
                             tokio::spawn(async move {
-                                tap::cli::logger::info(&format!(
-                                    "New client connected (\x1b[36m{}\x1b[0m)",
-                                    player.client.addr,
-                                )).await;
-                                player.run(game).await;
-                                tap::cli::logger::info(&format!(
-                                    "Client \x1b[36m{}\x1b[0m disconnected",
-                                    player.client.addr,
-                                )).await;
+                                Self::run_client(client, game).await;
                             });
                         }
                         Err(e) => return Err(e),
@@ -76,8 +82,320 @@ impl Cli {
                 }
             };
         }
-        tap::cli::logger::info("Server disconnected").await;
+        Logger::info("Server disconnected").await;
         Ok(())
+    }
+
+    async fn run_client(mut client: tap::network::Client, game: tap::utils::Shared<tap::game::GameState>) {
+        let mut username = String::new();
+        Logger::info(&format!(
+            "New client connected (\x1b[36m{}\x1b[0m)",
+            client.addr,
+        )).await;
+        Self::send_to(
+            &client,
+            &username,
+            &Message::Response(Response {
+                payload: Payload::new(&[
+                    PayloadKind::String("hello".to_string()),
+                    PayloadKind::KeyValue {
+                        key: "proto".to_string(),
+                        value: "1".to_string(),
+                    }
+                ])
+            }),
+        ).await;
+        loop {
+            match client.reader.read().await {
+                Ok(Some(message)) => {
+                    Logger::info(&format!(
+                        "From \x1b[0;35m{}\x1b[0;0m (\x1b[0;36m{}\x1b[0;0m): {}",
+                        if username.is_empty() { "?" } else { &username },
+                        client.addr,
+                        message,
+                    )).await;
+                    if let Message::Command(command) = message {
+                        if command.kind.requires_auth() && !matches!(client.state, tap::network::ClientState::Authenticated) {
+                            Self::send_to(&client, &username, &Message::Error(Error::NotAuthenticated)).await;
+                        } else if matches!(command.kind, CommandKind::Connect) && matches!(client.state, tap::network::ClientState::Authenticated) {
+                            Self::send_to(&client, &username, &Message::Error(Error::AlreadyAuthenticated)).await;
+                        } else {
+                            let mut game = game.lock().await;
+                            let message = Self::process_command(&mut client, &mut username, &mut game, &command).await;
+                            Self::send_to(&client, &username, &message).await;
+                            if let Message::Response(response) = message && (
+                                client.is_open() &&
+                                response.payload.args.len() == 1 &&
+                                if let PayloadKind::String(s) = &response.payload.args[0] {
+                                    s == "bye"
+                                } else {
+                                    false
+                                }
+                            ) {
+                                client.close();
+                            }
+                        }
+                    } else {
+                        Self::send_to(&client, &username, &Message::Error(Error::NotACommand)).await;
+                    }
+                }
+                Ok(None) => (),
+                Err(e) => {
+                    Logger::error(&format!("{e}")).await;
+                    if client.is_open() {
+                        Self::send_to(&client, &username, &Message::Error(Error::NotACommand)).await;
+                    } else {
+                        break;
+                    }
+                }
+            };
+            if !client.is_open() {
+                break;
+            }
+        }
+        if !username.is_empty() {
+            game.lock().await.players.remove(&username);
+        }
+        Logger::info(&format!(
+            "Client \x1b[36m{}\x1b[0m disconnected",
+            client.addr,
+        )).await;
+    }
+
+    async fn process_command(client: &mut tap::network::Client, username: &mut String, game: &mut tap::game::GameState, command: &Command) -> Message {
+        match command.kind {
+            CommandKind::Chat => {
+                let mut scope = String::new();
+                let mut message = String::new();
+                if let Err(_) = command.payload.extract(&mut [
+                    PayloadExtractor::String(&mut scope),
+                    PayloadExtractor::String(&mut message),
+                ]) {
+                    Message::Error(Error::InvalidArguments)
+                } else {
+                    match EventScope::from_str(&scope) {
+                        Ok(EventScope::Stats) => Message::Error(Error::InvalidArguments),
+                        Ok(scope) => {
+                            Self::send_event(
+                                &username,
+                                game,
+                                &Event {
+                                    scope,
+                                    kind: EventKind::Chat,
+                                    payload: Payload::new(&[
+                                        PayloadKind::String(username.clone()),
+                                        PayloadKind::String(message),
+                                    ]),
+                                },
+                            ).await;
+                            Message::Response(Response::default())
+                        }
+                        Err(_) => Message::Error(Error::InvalidArguments),
+                    }
+                }
+            }
+            CommandKind::Connect => {
+                username.clear();
+                if let Err(_) = command.payload.extract(&mut [
+                    PayloadExtractor::String(username),
+                ]) {
+                    Message::Error(Error::InvalidArguments)
+                } else if game.players.contains_key(username) {
+                    Message::Error(Error::NameInUse)
+                } else if username.is_empty() {
+                    Message::Error(Error::InvalidName)
+                } else {
+                    if let Some(writer) = &client.writer {
+                        client.state = tap::network::ClientState::Authenticated;
+                        game.players.insert(
+                            username.clone(),
+                            tap::game::Player {
+                                username: username.clone(),
+                                group: String::new(),
+                                room: game.start.clone(),
+                                writer: Some(writer.clone()),
+                            },
+                        );
+                        // self.room = game.start.clone();
+                        // (
+                        //     Some(Event {
+                        //         scope: EventScope::Stats,
+                        //         kind: EventKind::Players,
+                        //         payload: Payload::new(&[
+                        //             PayloadKind::KeyValue {
+                        //                 key: "players".to_string(),
+                        //                 value: (game.players.len() + 1).to_string(),
+                        //             },
+                        //         ]),
+                        //     }),
+                        Message::Response(Response {
+                            payload: Payload::new(&[
+                                PayloadKind::String("connected".to_string()),
+                            ]),
+                        })
+                    } else {
+                        Message::Error(Error::ServerError)
+                    }
+                }
+            }
+            CommandKind::Quit => {
+                if command.payload.is_empty() {
+                    Message::Response(Response {
+                        payload: Payload::new(&[
+                            PayloadKind::String("bye".to_string()),
+                        ]),
+                    })
+                } else {
+                    Message::Error(Error::InvalidArguments)
+                }
+            }
+            CommandKind::Look => {
+                if command.payload.is_empty() {
+                    Message::Response(Response {
+                        payload: Payload::new(&[
+                            PayloadKind::new_json(&game.rooms[&game.players[username].room]),
+                        ]),
+                    })
+                } else {
+                    Message::Error(Error::InvalidArguments)
+                }
+            }
+            CommandKind::Move => {
+                let mut direction = String::new();
+                if let Err(_) = command.payload.extract(&mut [
+                    PayloadExtractor::String(&mut direction),
+                ]) {
+                    Message::Error(Error::InvalidArguments)
+                } else {
+                    match tap::game::Direction::from_str(&direction) {
+                        Ok(direction) => {
+                            if let Some(player) = game.players.get_mut(username) {
+                                let room = &game.rooms[&player.room].room;
+                                if room.exits.contains_key(&direction) {
+                                    player.room = room.exits[&direction].clone();
+                                    Message::Response(Response {
+                                        payload: Payload::new(&[
+                                            PayloadKind::KeyValue {
+                                                key: "room".to_string(),
+                                                value: player.room.clone(),
+                                            },
+                                        ]),
+                                    })
+                                } else {
+                                    Message::Error(Error::NoExit)
+                                }
+                            } else {
+                                Message::Error(Error::ServerError)
+                            }
+                        }
+                        Err(_) => return Message::Error(Error::InvalidArguments),
+                    }
+                }
+            }
+            CommandKind::Who => {
+                if command.payload.is_empty() {
+                    Message::Response(Response {
+                        payload: Payload::new(&[
+                            PayloadKind::KeyValue {
+                                key: "players".to_string(),
+                                value: game.players.len().to_string(),
+                            },
+                        ]),
+                    })
+                } else {
+                    Message::Error(Error::InvalidArguments)
+                }
+            }
+            _ => Message::Response(Response::default()),
+        }
+    }
+
+    async fn send_to(client: &tap::network::Client, username: &String, message: &Message) {
+        Logger::info(&format!(
+            "To \x1b[0;35m{}\x1b[0;0m (\x1b[0;36m{}\x1b[0;0m): {}",
+            if username.is_empty() { "?" } else { &username },
+            client.addr,
+            message,
+        )).await;
+        if let Some(writer) = &client.writer {
+            let _ = writer.write_message(message).await;
+        }
+    }
+
+    async fn send_event(from: &String, game: &tap::game::GameState, event: &tap::messages::Event) {
+        let from = &game.players[from];
+        Logger::info(&format!(
+            "{} event: {}",
+            match event.scope {
+                EventScope::Global => "global".to_string(),
+                EventScope::Group => format!("group {}", from.group),
+                EventScope::Room => format!("room {}", from.room),
+                EventScope::Stats => "stats".to_string(),
+            },
+            event,
+        )).await;
+        let message = Message::Event(event.clone());
+        for (_, player) in &game.players {
+            if let Some(writer) = &player.writer {
+                if match event.scope {
+                    EventScope::Global | EventScope::Stats => true,
+                    EventScope::Group if player.group == from.group => true,
+                    EventScope::Room if player.room == from.room => true,
+                    _ => false, 
+                } {
+                    let _ = writer.write_message(&message).await;
+                }
+            }
+        }
+    }
+}
+
+pub enum LogKind {
+    Error,
+    Info,
+    Warning,
+}
+
+impl std::fmt::Display for LogKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Error => write!(f, "\x1b[31mERROR\x1b[0m"),
+            Self::Info => write!(f, "\x1b[34mINFO\x1b[0m"),
+            Self::Warning => write!(f, "\x1b[33mWARN\x1b[0m"),
+        }
+    }
+}
+
+static LOG_LOCK: std::sync::LazyLock<tokio::sync::Mutex<()>> = std::sync::LazyLock::new(|| tokio::sync::Mutex::new(()));
+
+struct Logger;
+
+impl Logger {
+    async fn log(kind: LogKind, s: &str) {
+        let _guard = LOG_LOCK.lock().await;
+        let s = format!(
+            "\x1b[90m[{}]\x1b[0m {}: {}",
+            chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+            kind,
+            s,
+        );
+        if matches!(kind, LogKind::Error) {
+            eprintln!("{s}");
+        } else {
+            println!("{s}");
+        }
+    }
+
+    pub async fn error(s: &str) {
+        Self::log(LogKind::Error, s).await;
+    }
+
+    pub async fn info(s: &str) {
+        Self::log(LogKind::Info, s).await;
+    }
+
+    pub async fn warning(s: &str) {
+        Self::log(LogKind::Warning, s).await;
     }
 }
 
@@ -85,6 +403,6 @@ impl Cli {
 async fn main() {
     match Cli::start().await {
         Ok(_) => (),
-        Err(e) => tap::cli::logger::error(&format!("{e}")).await,
+        Err(e) => Logger::error(&format!("{e}")).await,
     };
 }

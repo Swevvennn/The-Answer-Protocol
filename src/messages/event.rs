@@ -8,6 +8,18 @@ pub enum EventScope {
     Room,
 }
 
+impl EventScope {
+    pub fn from_str(s: &str) -> Result<Self, std::io::Error> {
+        match s {
+            "GLOBAL" => Ok(Self::Global),
+            "GROUP" => Ok(Self::Group),
+            "STATS" => Ok(Self::Stats),
+            "ROOM" => Ok(Self::Room),
+            _ => Err(std::io::Error::other(format!("unknown scope '{s}'"))),
+        }
+    }
+}
+
 impl std::fmt::Display for EventScope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -54,7 +66,7 @@ pub struct Event {
 impl Event {
     pub fn from_str(s: &str) -> Result<Event, std::io::Error> {
         let mut message = s.to_string();
-        if crate::messages::utils::parse_begin(&mut message, "EVT") {
+        if !crate::messages::utils::parse_begin(&mut message, "EVT") {
             return Err(crate::utils::invalid_input("not an event"));
         }
         let err = Err(crate::utils::invalid_input("invalid event"));

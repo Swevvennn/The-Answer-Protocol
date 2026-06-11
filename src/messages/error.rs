@@ -22,6 +22,7 @@ pub enum Error {
     SendFailed,
     UnexpectedServerResponse,
     ServerTimeOut,
+    ServerError,
 }
 
 impl Error {
@@ -47,6 +48,7 @@ impl Error {
             Self::SendFailed => 901,
             Self::UnexpectedServerResponse => 902,
             Self::ServerTimeOut => 903,
+            Self::ServerError => 904,
         }
     }
 
@@ -72,6 +74,7 @@ impl Error {
             Self::SendFailed => "SEND_FAILED",
             Self::UnexpectedServerResponse => "UNEXPECTED_SERVER_RESPONSE",
             Self::ServerTimeOut => "SERVER_TIME_OUT",
+            Self::ServerError => "SERVER_ERROR",
         }
     }
 
