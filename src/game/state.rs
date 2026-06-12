@@ -1,7 +1,7 @@
 #[derive(Default)]
 pub struct GameState {
     pub players: std::collections::HashMap<String, crate::game::Player>,
-    pub groups: std::collections::HashMap<String, Vec<String>>,
+    pub groups: std::collections::HashMap<String, crate::game::Group>,
     pub start: String,
     pub rooms: std::collections::HashMap<String, crate::game::RoomState>,
 }
@@ -14,7 +14,7 @@ impl GameState {
                 room.id.clone(),
                 crate::game::RoomState {
                     room,
-                    players: Vec::new(),
+                    players: std::collections::HashSet::new(),
                 }
             );
         }

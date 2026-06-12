@@ -1,6 +1,9 @@
 mod direction;
 pub use direction::Direction;
 
+mod group;
+pub use group::Group;
+
 mod item;
 pub use item::Item;
 
