@@ -305,6 +305,7 @@ struct Args {
     raw: bool,
 }
 
+#[derive(Default)]
 struct Cli {
     waiter: tap::utils::Waiter,
     input: tap::cli::Input,
@@ -324,15 +325,9 @@ impl Cli {
             Some(v) => v,
             None => "7373".to_string(),
         };
-        let mut cli = Cli {
-            waiter: tap::utils::Waiter::default(),
-            input: tap::cli::Input::new(),
-            client: tap::network::Client::default(),
-            player: tap::game::Player::default(),
-            command: None,
-        };
+        let mut cli = Cli::default();
         cli.client.addr = format!("{ip}:{port}");
-        if let Err(_) = cli.client.connect().await {
+        if cli.client.connect().await.is_err() {
             return Some(Error::ConnectionFailed);
         }
         cli.waiter.begin(3);
@@ -389,16 +384,16 @@ impl Cli {
             let _ = std::io::stderr().flush();
         }
 
-        print_input(&self);
+        print_input(self);
         loop {
-            match tokio::select! {
+            if let Some(e) = tokio::select! {
                 _ = self.waiter.wait() => Some(Error::ServerTimeOut),
                 event = self.input.read() => {
-                    match event {
-                        Some(event) => match event {
+                    if let Some(event) = event {
+                        match event {
                             tap::cli::InputEvent::Interrupted => return None,
                             tap::cli::InputEvent::Validate if !self.input.input.is_empty() && !self.waiter.is_waiting() => {
-                                print_out(&self, &self.input.input);
+                                print_out(self, &self.input.input);
                                 match Command::from_str(&self.input.consume()) {
                                     Ok(command) => {
                                         self.waiter.begin(3);
@@ -416,12 +411,13 @@ impl Cli {
                                 }
                             }
                             tap::cli::InputEvent::Input => {
-                                print_input(&self);
+                                print_input(self);
                                 None
                             }
                             _ => None,
                         }
-                        _ => None,
+                    } else {
+                        None
                     }
                 }
                 message = self.client.reader.read() => {
@@ -433,11 +429,11 @@ impl Cli {
                                     Message::Error(error) => Some(error),
                                     Message::Response(response) => {
                                         let r = self.process_response(&response);
-                                        print_out(&self, &response.to_string());
+                                        print_out(self, &response.to_string());
                                         r
                                     }
                                     Message::Event(event) => {
-                                        print_out(&self, &event.to_string());
+                                        print_out(self, &event.to_string());
                                         None
                                     }
                                     Message::Command(_) => Some(Error::UnexpectedServerResponse),
@@ -450,15 +446,12 @@ impl Cli {
                     }
                 }
             } {
-                Some(e) => {
-                    if e.is_fatal() {
-                        clear_line();
-                        return Some(e);
-                    } else {
-                        print_err(&self, &e);
-                    }
-                },
-                None => (),
+                if e.is_fatal() {
+                    clear_line();
+                    return Some(e);
+                } else {
+                    print_err(self, &e);
+                }
             }
         }
         None
@@ -477,9 +470,9 @@ impl Cli {
                     Ok(_) => {
                         self.client.state = tap::network::ClientState::Authenticated;
                         self.player.username.clear();
-                        if let Err(_) = command.payload.extract(&mut [
+                        if command.payload.extract(&mut [
                             PayloadExtractor::String(&mut self.player.username),
-                        ]) {
+                        ]).is_err() {
                             return Some(Error::UnexpectedServerResponse);
                         }
                     },
@@ -508,8 +501,7 @@ impl Cli {
 
 #[tokio::main]
 async fn main() {
-    match Cli::start().await {
-        Some(e) => eprintln!("{e}"),
-        None => (),
+    if let Some(e) = Cli::start().await {
+        eprintln!("{e}");
     };
 }

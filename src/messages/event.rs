@@ -1,6 +1,9 @@
 use strum::IntoEnumIterator;
 
-#[derive(Clone, strum_macros::EnumIter)]
+#[derive(
+    Clone,
+    strum_macros::EnumIter,
+)]
 pub enum EventScope {
     Global,
     Group,
@@ -33,7 +36,10 @@ impl std::fmt::Display for EventScope {
     }
 }
 
-#[derive(Clone, strum_macros::EnumIter)]
+#[derive(
+    Clone,
+    strum_macros::EnumIter,
+)]
 pub enum EventKind {
     Chat,
     Invite,

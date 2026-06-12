@@ -1,6 +1,9 @@
 use strum::IntoEnumIterator;
 
-#[derive(Clone, strum_macros::EnumIter)]
+#[derive(
+    Clone,
+    strum_macros::EnumIter,
+)]
 pub enum Error {
     UnknownError,
     NotACommand,

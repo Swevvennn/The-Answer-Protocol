@@ -52,7 +52,7 @@ pub enum PayloadExtractor<'a> {
 
 impl PayloadKind {
     pub fn new_json<T: serde::Serialize>(data: &T) -> Self {
-        Self::Json(serde_json::to_value(&data).unwrap())
+        Self::Json(serde_json::to_value(data).unwrap())
     }
 
     pub fn is_string(&self) -> bool {

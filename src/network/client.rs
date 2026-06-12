@@ -1,4 +1,7 @@
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{
+    AsyncReadExt,
+    AsyncWriteExt,
+};
 
 pub enum ClientState {
     Authenticated,
@@ -107,13 +110,10 @@ impl Reader {
 
     pub async fn read(&mut self) -> Result<Option<String>, std::io::Error> {
         loop {
-            match self.buffer.find('\n') {
-                Some(v) => {
-                    let message = self.buffer.drain(..v).collect::<String>();
-                    self.buffer.remove(0);
-                    return Ok(Some(message));
-                }
-                None => (),
+            if let Some(i) = self.buffer.find('\n') {
+                let message = self.buffer.drain(..i).collect::<String>();
+                self.buffer.remove(0);
+                return Ok(Some(message));
             }
             let mut buffer = [0u8; 1024];
             match &mut self.reader {

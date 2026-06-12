@@ -1,4 +1,8 @@
-#[derive(Default, serde::Deserialize, serde::Serialize)]
+#[derive(
+    Default,
+    serde::Deserialize,
+    serde::Serialize
+)]
 #[serde(deny_unknown_fields)]
 pub struct Player {
     pub username: String,

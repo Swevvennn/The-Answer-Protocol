@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::{f32::consts::E, str::FromStr};
+use std::str::FromStr;
 
 use tap::messages::{
     Command,
@@ -177,12 +177,10 @@ impl Cli {
             CommandKind::Chat => {
                 let mut scope = EventScope::Global;
                 let mut message = String::new();
-                if let Err(_) = command.payload.extract(&mut [
+                if command.payload.extract(&mut [
                     PayloadExtractor::Keyword(&mut scope),
                     PayloadExtractor::String(&mut message),
-                ]) {
-                    Message::Error(Error::InvalidArguments)
-                } else if matches!(scope, EventScope::Stats) {
+                ]).is_err() || matches!(scope, EventScope::Stats) {
                     Message::Error(Error::InvalidArguments)
                 } else {
                     let player = &game.players[username];
@@ -212,9 +210,9 @@ impl Cli {
             }
             CommandKind::Connect => {
                 username.clear();
-                if let Err(_) = command.payload.extract(&mut [
+                if command.payload.extract(&mut [
                     PayloadExtractor::String(username),
-                ]) {
+                ]).is_err() {
                     Message::Error(Error::InvalidArguments)
                 } else if game.players.contains_key(username) {
                     Message::Error(Error::NameInUse)
@@ -267,7 +265,7 @@ impl Cli {
                     } else {
                         return Message::Error(Error::ServerError);
                     }
-                    let mut group = tap::game::Group::new(&username);
+                    let mut group = tap::game::Group::new(username);
                     group.players.insert(username.clone());
                     game.groups.insert(username.clone(), group);
                     Message::Response(Response {
@@ -284,9 +282,9 @@ impl Cli {
             }
             CommandKind::GroupInvite => {
                 let mut invited = String::new();
-                if let Err(_) = command.payload.extract(&mut [
+                if command.payload.extract(&mut [
                     PayloadExtractor::String(&mut invited),
-                ]) {
+                ]).is_err() {
                     Message::Error(Error::InvalidArguments)
                 } else if let Some(invited) = game.players.get(&invited) {
                     let group = game.players[username].group.clone();
@@ -299,7 +297,7 @@ impl Cli {
                     }
                     Self::send_event(
                         &invited.username,
-                        &game,
+                        game,
                         &Event {
                             scope: EventScope::Group,
                             kind: EventKind::Invite,
@@ -317,9 +315,9 @@ impl Cli {
             }
             CommandKind::GroupJoin => {
                 let mut group = String::new();
-                if let Err(_) = command.payload.extract(&mut [
+                if command.payload.extract(&mut [
                     PayloadExtractor::String(&mut group),
-                ]) {
+                ]).is_err() {
                     Message::Error(Error::InvalidArguments)
                 } else {
                     if let Some(group) = game.groups.get_mut(&group) {
@@ -394,9 +392,9 @@ impl Cli {
             }
             CommandKind::Move => {
                 let mut direction = tap::game::Direction::East;
-                if let Err(_) = command.payload.extract(&mut [
+                if command.payload.extract(&mut [
                     PayloadExtractor::Keyword(&mut direction),
-                ]) {
+                ]).is_err() {
                     Message::Error(Error::InvalidArguments)
                 } else {
                     let room: String;
@@ -413,7 +411,7 @@ impl Cli {
                     }
                     Self::send_event(
                         &room,
-                        &game,
+                        game,
                         &Event {
                             scope: EventScope::Room,
                             kind: EventKind::PresenceEnter,

@@ -19,14 +19,6 @@ pub struct Input {
 }
 
 impl Input {
-    pub fn new() -> Self {
-        let _ = crossterm::terminal::enable_raw_mode();
-        Self {
-            input: String::new(),
-            events: crossterm::event::EventStream::new(),
-        }
-    }
-
     pub fn consume(&mut self) -> String {
         let input = self.input.clone();
         self.input.clear();
@@ -59,6 +51,16 @@ impl Input {
                 }
             }
             _ => None,
+        }
+    }
+}
+
+impl Default for Input {
+    fn default() -> Self {
+        let _ = crossterm::terminal::enable_raw_mode();
+        Self {
+            input: String::new(),
+            events: crossterm::event::EventStream::new(),
         }
     }
 }

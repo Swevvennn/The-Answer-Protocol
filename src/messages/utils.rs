@@ -32,10 +32,7 @@ pub fn parse_payload(s: &mut String) -> Result<Payload, std::io::Error> {
         Err(_) => return Err(crate::utils::invalid_input("invalid payload")),
     };
     if space {
-        match Payload::from_str(&s) {
-            Ok(v) => Ok(v),
-            Err(e) => Err(e),
-        }
+        Payload::from_str(s)
     } else {
         Ok(Payload::default())
     }
