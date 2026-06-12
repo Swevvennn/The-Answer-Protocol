@@ -276,12 +276,11 @@ impl std::str::FromStr for Payload {
                 j += 1;
             }
             let arg: String = chars[i..j].iter().collect();
-            let kind = match t {
+            payload.args.push(match match t {
                 1 => PayloadKind::key_value_from_str(&arg),
                 2 => PayloadKind::json_from_str(&arg),
                 _ => PayloadKind::string_from_str(&arg),
-            };
-            payload.args.push(match kind {
+            } {
                 Ok(v) => v,
                 Err(_) => return Err(crate::utils::invalid_input(&format!("invalid payload '{s}'"))),
             });
@@ -297,6 +296,6 @@ impl std::fmt::Display for Payload {
         for arg in &self.args {
             v.push(arg.to_string());
         }
-        crate::messages::utils::write_vec(f, v)
+        write!(f, "{}", v.join(" "))
     }
 }

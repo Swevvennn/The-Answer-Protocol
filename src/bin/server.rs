@@ -161,8 +161,23 @@ impl Cli {
         }
         if !username.is_empty() {
             let mut game = game.lock().await;
+            let room = game.players[&username].room.clone();
+            game.players.remove(&username);
             Self::send_event(
-                &username,
+                &room,
+                &game,
+                &Event {
+                    scope: EventScope::Room,
+                    kind: EventKind::PresenceLeave,
+                    payload: Payload::new(&[
+                        PayloadKind::String(username.clone()),
+                        PayloadKind::String("".to_string()),
+                    ]),
+                },
+                |to| to.room == room,
+            ).await;
+            Self::send_event(
+                "",
                 &game,
                 &Event {
                     scope: EventScope::Stats,
@@ -170,12 +185,12 @@ impl Cli {
                     payload: Payload::new(&[
                         PayloadKind::KeyValue {
                             key: "players".to_string(),
-                            value: (game.players.len() - 1).to_string(),
+                            value: game.players.len().to_string(),
                         },
                     ]),
                 },
+                |_| true,
             ).await;
-            game.players.remove(&username);
         }
         Logger::info(&format!(
             "Client \x1b[36m{}\x1b[0m disconnected",
@@ -196,16 +211,26 @@ impl Cli {
                 } else if matches!(scope, EventScope::Stats) {
                     Message::Error(Error::InvalidArguments)
                 } else {
+                    let player = &game.players[username];
                     Self::send_event(
-                        username,
+                        match scope {
+                            EventScope::Group => &player.group,
+                            EventScope::Room => &player.room,
+                            _ => "",
+                        },
                         game,
                         &Event {
-                            scope,
+                            scope: scope.clone(),
                             kind: EventKind::Chat,
                             payload: Payload::new(&[
                                 PayloadKind::String(username.clone()),
                                 PayloadKind::String(message),
                             ]),
+                        },
+                        |to| match scope {
+                            EventScope::Group => to.group == player.group,
+                            EventScope::Room => to.room == player.room,
+                            _ => true,
                         },
                     ).await;
                     Message::Response(Response::default())
@@ -234,7 +259,7 @@ impl Cli {
                             },
                         );
                         Self::send_event(
-                            username,
+                            "",
                             game,
                             &Event {
                                 scope: EventScope::Stats,
@@ -246,6 +271,20 @@ impl Cli {
                                     },
                                 ]),
                             },
+                            |_| true,
+                        ).await;
+                        Self::send_event(
+                            &game.start,
+                            game,
+                            &Event {
+                                scope: EventScope::Room,
+                                kind: EventKind::PresenceEnter,
+                                payload: Payload::new(&[
+                                    PayloadKind::String(username.clone()),
+                                    PayloadKind::String("".to_string()),
+                                ]),
+                            },
+                            |to| to.username != *username && to.room == game.start,
                         ).await;
                         Message::Response(Response {
                             payload: Payload::new(&[
@@ -286,37 +325,50 @@ impl Cli {
                 ]) {
                     Message::Error(Error::InvalidArguments)
                 } else {
-                    if let Some(player) = game.players.get_mut(username) {
-                        let room = &game.rooms[&player.room].room;
-                        if room.exits.contains_key(&direction) {
-                            let room = room.exits[&direction].clone();
-                            // Self::send_event(
-                            //     username,
-                            //     game,
-                            //     &Event {
-                            //         scope: EventScope::Room,
-                            //         kind: EventKind::PresenceLeave,
-                            //         payload: Payload::new(&[
-                            //             PayloadKind::String(username.clone()),
-                            //             PayloadKind::String(direction.to_string()),
-                            //             PayloadKind::String(room.clone()),
-                            //         ]),
-                            //     },
-                            // ).await;
-                            player.room = room;
-                            Message::Response(Response {
-                                payload: Payload::new(&[
-                                    PayloadKind::KeyValue {
-                                        key: "room".to_string(),
-                                        value: player.room.clone(),
-                                    },
-                                ]),
-                            })
+                    let room = &game.rooms[&game.players[username].room].room;
+                    if room.exits.contains_key(&direction) {
+                        let dest = room.exits[&direction].clone();
+                        if let Some(player) = game.players.get_mut(username) {
+                            player.room = dest.clone();
                         } else {
-                            Message::Error(Error::NoExit)
+                            return Message::Error(Error::ServerError);
                         }
+                        Self::send_event(
+                            &room.id,
+                            &game,
+                            &Event {
+                                scope: EventScope::Room,
+                                kind: EventKind::PresenceLeave,
+                                payload: Payload::new(&[
+                                    PayloadKind::String(username.clone()),
+                                    PayloadKind::String(direction.to_string()),
+                                ]),
+                            },
+                            |to| to.username != *username && to.room == room.id,
+                        ).await;
+                        Self::send_event(
+                            &dest,
+                            &game,
+                            &Event {
+                                scope: EventScope::Room,
+                                kind: EventKind::PresenceEnter,
+                                payload: Payload::new(&[
+                                    PayloadKind::String(username.clone()),
+                                    PayloadKind::String(direction.opposite().to_string()),
+                                ]),
+                            },
+                            |to| to.username != *username && to.room == dest,
+                        ).await;
+                        Message::Response(Response {
+                            payload: Payload::new(&[
+                                PayloadKind::KeyValue {
+                                    key: "room".to_string(),
+                                    value: dest,
+                                },
+                            ]),
+                        })
                     } else {
-                        Message::Error(Error::ServerError)
+                        Message::Error(Error::NoExit)
                     }
                 }
             }
@@ -350,29 +402,20 @@ impl Cli {
         }
     }
 
-    async fn send_event(username: &String, game: &tap::game::GameState, event: &tap::messages::Event) {
-        let from = &game.players[username];
+    async fn send_event<F: FnMut(&tap::game::Player) -> bool>(details: &str, game: &tap::game::GameState, event: &Event, mut filter: F) {
         Logger::info(&format!(
             "{} event: {}",
             match event.scope {
                 EventScope::Global => "global".to_string(),
-                EventScope::Group => format!("group {}", from.group),
-                EventScope::Room => format!("room {}", from.room),
+                EventScope::Group => format!("group \x1b[0;35m{}\x1b[0;0m", details),
+                EventScope::Room => format!("room \x1b[0;35m{}\x1b[0;0m", details),
                 EventScope::Stats => "stats".to_string(),
             },
             event,
         )).await;
-        let message = Message::Event(event.clone());
-        for (_, player) in &game.players {
+        for (_, player) in game.players.iter().filter(|(_, player)| filter(player)) {
             if let Some(writer) = &player.writer {
-                if match event.scope {
-                    EventScope::Global | EventScope::Stats => true,
-                    EventScope::Group if player.group == from.group => true,
-                    EventScope::Room if player.room == from.room => true,
-                    _ => false, 
-                } {
-                    let _ = writer.write_message(&message).await;
-                }
+                let _ = writer.write_message(&Message::Event(event.clone())).await;
             }
         }
     }

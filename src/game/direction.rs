@@ -14,6 +14,17 @@ pub enum Direction {
     West,
 }
 
+impl Direction {
+    pub fn opposite(&self) -> Self {
+        match self {
+            Self::East => Self::West,
+            Self::North => Self::South,
+            Self::South => Self::North,
+            Self::West => Self::East,
+        }
+    }
+}
+
 impl std::str::FromStr for Direction {
     type Err = std::io::Error;
 
