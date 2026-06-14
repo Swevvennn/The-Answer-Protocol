@@ -38,7 +38,7 @@ struct Cli {
 impl Cli {
     pub async fn start() -> Result<(), std::io::Error> {
         let args = Args::parse();
-        let world = match tap::game::World::new(&args.world) {
+        let game = match tap::game::GameState::new(&args.world) {
             Ok(v) => v,
             Err(e) => return Err(std::io::Error::new(
                 e.kind(),
@@ -55,7 +55,7 @@ impl Cli {
         };
         let mut cli = Cli {
             server: tap::network::Server::new(&format!("{ip}:{port}")),
-            game: tap::utils::Shared::new(tap::game::GameState::new(world)),
+            game: tap::utils::Shared::new(game),
         };
         cli.server.bind().await?;
         Logger::info(&format!("Server listening at \x1b[36m{}\x1b[0m", cli.server.addr)).await;
