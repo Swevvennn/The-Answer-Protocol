@@ -1,9 +1,4 @@
-#[derive(
-    Default,
-    serde::Deserialize,
-    serde::Serialize,
-)]
-#[serde(deny_unknown_fields)]
+#[derive(Default)]
 pub struct Group {
     pub name: String,
     pub players: std::collections::HashSet<String>,

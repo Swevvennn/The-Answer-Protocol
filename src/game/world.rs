@@ -1,4 +1,14 @@
 #[derive(
+    serde::Deserialize,
+    serde::Serialize,
+)]
+#[serde(deny_unknown_fields)]
+pub struct Spawn {
+    pub id: String,
+    pub room: String,
+}
+
+#[derive(
     Default,
     serde::Deserialize,
     serde::Serialize,
@@ -7,6 +17,8 @@
 pub struct World {
     pub start: String,
     pub rooms: Vec<crate::game::Room>,
+    pub items: Vec<crate::game::Item>,
+    pub spawns: Vec<Spawn>,
 }
 
 impl World {

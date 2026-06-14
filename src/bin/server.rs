@@ -223,12 +223,11 @@ impl Cli {
                         client.state = tap::network::ClientState::Authenticated;
                         game.players.insert(
                             username.clone(),
-                            tap::game::Player {
-                                username: username.clone(),
-                                group: String::new(),
-                                room: game.start.clone(),
-                                writer: Some(writer.clone()),
-                            },
+                            tap::game::Player::new(
+                                username.clone(),
+                                game.start.clone(),
+                                writer.clone(),
+                            ),
                         );
                         Self::send_player_count(game).await;
                         Self::send_event(
@@ -252,6 +251,30 @@ impl Cli {
                     } else {
                         Message::Error(Error::ServerError)
                     }
+                }
+            }
+            CommandKind::Drop => {
+                let mut item = String::new();
+                if command.payload.extract(&mut [
+                    PayloadExtractor::String(&mut item),
+                ]).is_err() {
+                    Message::Error(Error::InvalidArguments)
+                } else if let Some(player) = game.players.get_mut(username) && let Some(room) = game.rooms.get_mut(&player.room) {
+                    if let Some(i) = player.items.iter().position(|i| *i == item) {
+                        room.items.push(player.items.remove(i));
+                        Message::Response(Response {
+                            payload: Payload::new(&[
+                                PayloadKind::KeyValue {
+                                    key: "dropped".to_string(),
+                                    value: item,
+                                },
+                            ]),
+                        })
+                    } else {
+                        Message::Error(Error::ItemNotInInventory)
+                    }
+                } else {
+                    Message::Error(Error::ServerError)
                 }
             }
             CommandKind::GroupCreate => {
@@ -368,11 +391,11 @@ impl Cli {
                     Message::Error(Error::InvalidArguments)
                 }
             }
-            CommandKind::Quit => {
+            CommandKind::Inventory => {
                 if command.payload.is_empty() {
                     Message::Response(Response {
                         payload: Payload::new(&[
-                            PayloadKind::String("bye".to_string()),
+                            PayloadKind::new_json(&game.players[username].items),
                         ]),
                     })
                 } else {
@@ -430,6 +453,41 @@ impl Cli {
                             },
                         ]),
                     })
+                }
+            }
+            CommandKind::Quit => {
+                if command.payload.is_empty() {
+                    Message::Response(Response {
+                        payload: Payload::new(&[
+                            PayloadKind::String("bye".to_string()),
+                        ]),
+                    })
+                } else {
+                    Message::Error(Error::InvalidArguments)
+                }
+            }
+            CommandKind::Take => {
+                let mut item = String::new();
+                if command.payload.extract(&mut [
+                    PayloadExtractor::String(&mut item),
+                ]).is_err() {
+                    Message::Error(Error::InvalidArguments)
+                } else if let Some(player) = game.players.get_mut(username) && let Some(room) = game.rooms.get_mut(&player.room) {
+                    if let Some(i) = room.items.iter().position(|i| *i == item) {
+                        player.items.push(room.items.remove(i));
+                        Message::Response(Response {
+                            payload: Payload::new(&[
+                                PayloadKind::KeyValue {
+                                    key: "taken".to_string(),
+                                    value: item,
+                                },
+                            ]),
+                        })
+                    } else {
+                        Message::Error(Error::ItemNotFound)
+                    }
+                } else {
+                    Message::Error(Error::ServerError)
                 }
             }
             CommandKind::Who => {

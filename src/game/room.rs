@@ -1,4 +1,5 @@
 #[derive(
+    Default,
     serde::Deserialize,
     serde::Serialize,
 )]
@@ -11,6 +12,7 @@ pub struct Room {
 }
 
 #[derive(
+    Default,
     serde::Deserialize,
     serde::Serialize,
 )]
@@ -18,6 +20,16 @@ pub struct Room {
 pub struct RoomState {
     pub room: Room,
     pub players: std::collections::HashSet<String>,
-    // pub items: Vec<String>,
+    pub items: Vec<String>,
     // pub npcs: Vec<String>,
+}
+
+impl RoomState {
+    pub fn new(room: Room) -> Self {
+        Self {
+            room,
+            players: std::collections::HashSet::new(),
+            items: Vec::new(),
+        }
+    }
 }

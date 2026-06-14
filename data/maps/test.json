@@ -37,5 +37,18 @@
                 "west": "room.start"
             }
         }
+    ],
+    "items": [
+        {
+            "id": "item.coin",
+            "name": "Coin",
+            "description": "A gold coin"
+        }
+    ],
+    "spawns": [
+        {
+            "id": "item.coin",
+            "room": "room.start"
+        }
     ]
 }
