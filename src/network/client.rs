@@ -3,10 +3,12 @@ use tokio::io::{
     AsyncWriteExt,
 };
 
+#[derive(Default)]
 pub enum ClientState {
+    #[default]
+    Disconnected,
     Authenticated,
     Connected,
-    Disconnected,
     Terminated,
 }
 
@@ -21,6 +23,7 @@ impl std::fmt::Display for ClientState {
     }
 }
 
+#[derive(Default)]
 pub struct Client {
     pub state: ClientState,
     pub addr: String,
@@ -67,18 +70,6 @@ impl Client {
         };
         self.state = ClientState::Connected;
         Ok(())
-    }
-}
-
-impl Default for Client {
-    fn default() -> Self {
-        Self {
-            state: ClientState::Disconnected,
-            addr: String::new(),
-            proto: String::new(),
-            reader: Reader::default(),
-            writer: None,
-        }
     }
 }
 

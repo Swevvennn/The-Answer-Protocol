@@ -1,6 +1,8 @@
+#[derive(Default)]
 pub enum ServerState {
-    Binded,
+    #[default]
     Disconnected,
+    Binded,
     Terminated,
 }
 
@@ -14,6 +16,7 @@ impl std::fmt::Display for ServerState {
     }
 }
 
+#[derive(Default)]
 pub struct Server {
     pub state: ServerState,
     pub addr: String,
@@ -62,16 +65,6 @@ impl Server {
                 },
             }
             None => Err(std::io::Error::other("not binded")),
-        }
-    }
-}
-
-impl Default for Server {
-    fn default() -> Self {
-        Self {
-            state: ServerState::Disconnected,
-            addr: String::new(),
-            listener: None,
         }
     }
 }

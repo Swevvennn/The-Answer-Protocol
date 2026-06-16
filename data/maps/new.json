@@ -1,68 +1,68 @@
 {
-    "start": "room.start",
     "rooms": [
         {
-            "id": "room.start",
+            "id": "start",
             "name": "Starting point",
             "description": "blablabla",
             "exits": {
-                "north": "room.0",
-                "east": "room.2"
+                "north": "0",
+                "east": "2"
             }
         },
         {
-            "id": "room.0",
+            "id": "0",
             "name": "Room 0",
             "description": "blablabla",
             "exits": {
-                "south": "room.start",
-                "east": "room.1"
+                "south": "start",
+                "east": "1"
             }
         },
         {
-            "id": "room.1",
+            "id": "1",
             "name": "Room 1",
             "description": "blablabla",
             "exits": {
-                "south": "room.2",
-                "west": "room.0"
+                "south": "2",
+                "west": "0"
             }
         },
         {
-            "id": "room.2",
+            "id": "2",
             "name": "Room 2",
             "description": "blablabla",
             "exits": {
-                "north": "room.1",
-                "west": "room.start"
+                "north": "1",
+                "west": "start"
             }
         }
     ],
     "items": [
         {
-            "id": "item.coin",
+            "id": "coin",
             "name": "Coin",
             "description": "A gold coin"
         }
     ],
     "npcs": [
         {
-            "id": "npc.welcomer",
+            "id": "welcomer",
             "name": "Welcomer",
             "data": {
-                "type": "neutral",
                 "dialogues": ["Welcome stranger!"]
             }
         }
     ],
+    "quests": [],
     "spawns": [
         {
-            "id": "item.coin",
-            "room": "room.start"
+            "room": "start",
+            "item": "coin",
+            "count": 2
         },
         {
-            "id": "npc.welcomer",
-            "room": "room.start"
+            "room": "start",
+            "npc": "welcomer"
         }
     ]
 }

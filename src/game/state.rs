@@ -1,11 +1,25 @@
+fn default_count() -> usize {
+    1
+}
+
 #[derive(
     serde::Deserialize,
     serde::Serialize,
 )]
 #[serde(deny_unknown_fields)]
-pub struct Spawn {
-    pub id: String,
-    pub room: String,
+#[serde(untagged)]
+enum SpawnKind {
+    Item {
+        room: String,
+        item: String,
+
+        #[serde(default = "default_count")]
+        count: usize,
+    },
+    NPC {
+        room: String,
+        npc: String,
+    },
 }
 
 #[derive(
@@ -14,20 +28,21 @@ pub struct Spawn {
     serde::Serialize,
 )]
 #[serde(deny_unknown_fields)]
-pub struct World {
-    pub start: String,
+struct World {
     pub rooms: Vec<crate::game::Room>,
     pub items: Vec<crate::game::Item>,
-    pub spawns: Vec<Spawn>,
+    pub npcs: Vec<crate::game::NPC>,
+    pub quests: Vec<crate::game::Quest>,
+    pub spawns: Vec<SpawnKind>,
 }
 
 #[derive(Default)]
 pub struct GameState {
     pub players: std::collections::HashMap<String, crate::game::Player>,
     pub groups: std::collections::HashMap<String, crate::game::Group>,
-    pub start: String,
     pub rooms: std::collections::HashMap<String, crate::game::RoomState>,
     pub items: std::collections::HashMap<String, crate::game::Item>,
+    pub npcs: std::collections::HashMap<String, crate::game::NPC>,
 }
 
 impl GameState {
@@ -39,23 +54,24 @@ impl GameState {
             return Err(std::io::Error::other("cannot instantiate a world without any room data"));
         }
         let mut game = Self::default();
-        for room in world.rooms {
-            if !room.id.starts_with("room.") {
-                return Err(std::io::Error::other(format!(
-                    "invalid room id '{}': rooms id must be in format room.<id>",
-                    room.id,
-                )));
-            }
+        for mut room in world.rooms {
+            room.id = format!("room.{}", room.id);
             if game.rooms.contains_key(&room.id) {
                 return Err(std::io::Error::other(format!(
                     "duplicated room id '{}'",
                     room.id,
                 )));
             }
+            for (_, id) in room.exits.iter_mut() {
+                *id = format!("room.{id}");
+            }
             game.rooms.insert(
                 room.id.clone(),
                 crate::game::RoomState::new(room),
             );
+        }
+        if !game.rooms.contains_key("room.start") {
+            return Err(std::io::Error::other(format!("missing room 'start' used as spawn point")));
         }
         let mut positions: std::collections::HashMap<String, (i32, i32)> = std::collections::HashMap::new();
         loop {
@@ -103,13 +119,8 @@ impl GameState {
             }
             break;
         }
-        for item in world.items {
-            if !item.id.starts_with("item.") {
-                return Err(std::io::Error::other(format!(
-                    "invalid item id '{}': items id must be in format item.<id>",
-                    item.id,
-                )));
-            }
+        for mut item in world.items {
+            item.id = format!("item.{}", item.id);
             if game.items.contains_key(&item.id) {
                 return Err(std::io::Error::other(format!(
                     "duplicated item id '{}'",
@@ -121,22 +132,52 @@ impl GameState {
                 item,
             );
         }
-        for spawn in world.spawns {
-            if let Some(room) = game.rooms.get_mut(&spawn.room) {
-                if game.items.contains_key(&spawn.id) {
-                    room.items.push(spawn.id.clone());
-                }
-                else {
-                    return Err(std::io::Error::other(format!(
-                        "the id '{}' doesn't refer to any world data",
-                        spawn.id,
-                    )));
-                }
-            } else {
+        for mut npc in world.npcs {
+            npc.id = format!("npc.{}", npc.id);
+            if game.npcs.contains_key(&npc.id) {
                 return Err(std::io::Error::other(format!(
-                    "there is no room identified by '{}'",
-                    spawn.room,
+                    "duplicated NPC id '{}'",
+                    npc.id,
                 )));
+            }
+            game.npcs.insert(
+                npc.id.clone(),
+                npc,
+            );
+        }
+        for spawn in world.spawns {
+            match spawn {
+                SpawnKind::Item {
+                    mut room,
+                    mut item,
+                    count
+                } => {
+                    room = format!("room.{room}");
+                    item = format!("item.{item}");
+                    if !game.items.contains_key(&item) {
+                        return Err(std::io::Error::other(format!("there is no item identified by '{item}'")));
+                    }
+                    if let Some(room) = game.rooms.get_mut(&room) {
+                        room.items.extend(std::iter::repeat_n(item, count));
+                    } else {
+                        return Err(std::io::Error::other(format!("there is no room identified by '{room}'")));
+                    }
+                }
+                SpawnKind::NPC {
+                    mut room,
+                    mut npc,
+                } => {
+                    room = format!("room.{room}");
+                    npc = format!("npc.{npc}");
+                    if !game.npcs.contains_key(&npc) {
+                        return Err(std::io::Error::other(format!("there is no npc identified by '{npc}'")));
+                    }
+                    if let Some(room) = game.rooms.get_mut(&room) {
+                        room.npcs.push(npc);
+                    } else {
+                        return Err(std::io::Error::other(format!("there is no room identified by '{room}'")));
+                    }
+                }
             }
         }
         Ok(game)

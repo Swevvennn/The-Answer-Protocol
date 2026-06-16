@@ -278,14 +278,8 @@ use tap::messages::{
     Command,
     CommandKind,
     Error,
-    Event,
-    EventKind,
-    EventScope,
     Message,
-    Payload,
     PayloadExtractor,
-    PayloadJson,
-    PayloadKind,
     Response,
 };
 

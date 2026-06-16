@@ -24,6 +24,7 @@ pub enum Error {
     NPCNotFound,
     NPCNotHostile,
     NoQuestAvailable,
+    NPCNotNeutral,
     ConnectionFailed,
     SendFailed,
     ConnectionClosed,
@@ -54,6 +55,7 @@ impl Error {
             Self::NPCNotFound => 404,
             Self::NPCNotHostile => 405,
             Self::NoQuestAvailable => 406,
+            Self::NPCNotNeutral => 407,
             Self::ConnectionFailed => 900,
             Self::SendFailed => 901,
             Self::ConnectionClosed => 902,
@@ -84,6 +86,7 @@ impl Error {
             Self::NPCNotFound => "NPC_NOT_FOUND",
             Self::NPCNotHostile => "NPC_NOT_HOSTILE",
             Self::NoQuestAvailable => "NO_QUEST_AVAILABLE",
+            Self::NPCNotNeutral => "NPC_NOT_NEUTRAL",
             Self::ConnectionFailed => "CONNECTION_FAILED",
             Self::SendFailed => "SEND_FAILED",
             Self::ConnectionClosed => "CONNECTION_CLOSED",
@@ -100,7 +103,8 @@ impl Error {
             Self::SendFailed |
             Self::ConnectionClosed |
             Self::UnexpectedServerResponse |
-            Self::ServerTimeOut,
+            Self::ServerTimeOut |
+            Self::ServerError,
         )
     }
 }
