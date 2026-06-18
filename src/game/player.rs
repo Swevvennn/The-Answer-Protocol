@@ -4,8 +4,7 @@ pub struct Player {
     pub group: String,
     pub room: String,
     pub items: Vec<String>,
-    pub quests: Vec<String>,
-    pub completed_quests: std::collections::HashMap<String, usize>,
+    pub quests: std::collections::HashMap<String, crate::game::QuestProgress>,
     pub writer: Option<std::sync::Arc<crate::network::Writer>>,
 }
 
@@ -16,8 +15,7 @@ impl Player {
             group: String::new(),
             room: String::new(),
             items: Vec::new(),
-            quests: Vec::new(),
-            completed_quests: std::collections::HashMap::new(),
+            quests: std::collections::HashMap::new(),
             writer: Some(writer),
         }
     }
@@ -93,6 +91,14 @@ impl Player {
         })
     }
 
+    pub fn quests(game: &crate::game::GameState, player: &String) -> crate::messages::Message {
+        crate::messages::Message::Response(crate::messages::Response {
+            payload: crate::messages::Payload::new(&[
+                crate::messages::PayloadKind::new_json(&game.players[player].quests.values().collect::<Vec<&crate::game::QuestProgress>>()),
+            ]),
+        })
+    }
+
     pub fn look(game: &crate::game::GameState, player: &String) -> crate::messages::Message {
         crate::messages::Message::Response(crate::messages::Response {
             payload: crate::messages::Payload::new(&[
@@ -110,6 +116,9 @@ impl Player {
         }
         crate::game::RoomState::leave(game, player).await;
         crate::game::RoomState::enter(game, player, &room).await;
+        if let Some(player) = game.players.get_mut(player) {
+            Self::update_quests(&game.quests, player, "room", &player.room.clone());
+        }
         crate::messages::Message::Response(crate::messages::Response {
             payload: crate::messages::Payload::new(&[
                 crate::messages::PayloadKind::KeyValue {
@@ -124,6 +133,7 @@ impl Player {
         if let Some(player) = game.players.get_mut(player) && let Some(room) = game.rooms.get_mut(&player.room) {
             if let Some(i) = room.items.iter().position(|i| *i == *item) {
                 player.items.push(room.items.remove(i));
+                Self::update_quests(&game.quests, player, "item", item);
                 crate::messages::Message::Response(crate::messages::Response {
                     payload: crate::messages::Payload::new(&[
                         crate::messages::PayloadKind::KeyValue {
@@ -140,10 +150,28 @@ impl Player {
         }
     }
 
+    pub fn abandon_quest(game: &mut crate::game::GameState, player: &String, quest: &String) -> crate::messages::Message {
+        if let Some(player) = game.players.get_mut(player) {
+            if let Some(quest) = player.quests.get_mut(quest) {
+                if matches!(quest.status, crate::game::QuestStatus::Active) {
+                    quest.status = crate::game::QuestStatus::Abandoned;
+                    crate::messages::Message::Response(crate::messages::Response::default())
+                } else {
+                    crate::messages::Message::Error(crate::messages::Error::QuestNotActive)
+                }
+            } else {
+                crate::messages::Message::Error(crate::messages::Error::QuestNotFound)
+            }
+        } else {
+            crate::messages::Message::Error(crate::messages::Error::ServerError)
+        }
+    }
+
     pub fn drop(game: &mut crate::game::GameState, player: &String, item: &String) -> crate::messages::Message {
         if let Some(player) = game.players.get_mut(player) && let Some(room) = game.rooms.get_mut(&player.room) {
             if let Some(i) = player.items.iter().position(|i| *i == *item) {
                 room.items.push(player.items.remove(i));
+                Self::update_quests(&game.quests, player, "item", item);
                 crate::messages::Message::Response(crate::messages::Response {
                     payload: crate::messages::Payload::new(&[
                         crate::messages::PayloadKind::KeyValue {
@@ -157,6 +185,49 @@ impl Player {
             }
         } else {
             crate::messages::Message::Error(crate::messages::Error::ServerError)
+        }
+    }
+
+    pub fn update_quests(quests: &std::collections::HashMap<String, crate::game::Quest>, player: &mut Player, kind: &str, value: &str) {
+        for (id, quest) in player.quests.iter_mut() {
+            if matches!(quest.status, crate::game::QuestStatus::Active) {
+                let reference = &quests[id];
+                if match &reference.task {
+                    crate::game::QuestKind::Bring {
+                        item,
+                        count,
+                    } if kind.is_empty() || kind== "item" && item == value => {
+                        quest.progress = player.items
+                            .iter()
+                            .filter(|s| **s == *item)
+                            .count() as u32;
+                        reference.autocomplete && quest.progress == *count
+                    }
+                    crate::game::QuestKind::Goto {
+                        room
+                    } if kind.is_empty() || kind == "room" && room == value => {
+                        quest.progress = (player.room == *room) as u32;
+                        reference.autocomplete && quest.progress == 1
+                    }
+                    crate::game::QuestKind::Kill {
+                        enemy,
+                        count,
+                    } if kind == "kill" && enemy == value => {
+                        quest.progress += 1;
+                        reference.autocomplete && quest.progress == *count
+                    }
+                    crate::game::QuestKind::Talk {
+                        npc
+                    } if kind == "talk" && npc == value => {
+                        quest.progress = 1;
+                        reference.autocomplete
+                    }
+                    _ => false,
+                } {
+                    player.items.append(&mut reference.reward.clone());
+                    quest.status = crate::game::QuestStatus::Completed;
+                }
+            }
         }
     }
 }

@@ -170,6 +170,16 @@ impl Cli {
 
     async fn process_command(client: &mut tap::network::Client, username: &mut String, game: &mut tap::game::GameState, command: &tap::messages::Command) -> tap::messages::Message {
         match command.kind {
+            tap::messages::CommandKind::AbandonQuest => {
+                let mut quest = String::new();
+                if command.payload.extract(&mut [
+                    tap::messages::PayloadExtractor::String(&mut quest),
+                ]).is_err() {
+                    tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
+                } else {
+                    tap::game::Player::abandon_quest(game, username, &quest)
+                }
+            }
             tap::messages::CommandKind::Chat => {
                 let mut scope = tap::messages::EventScope::Global;
                 let mut message = String::new();
@@ -260,6 +270,23 @@ impl Cli {
                     tap::game::Player::move_to(game, username, &direction).await
                 }
             }
+            tap::messages::CommandKind::Quest => {
+                let mut npc = String::new();
+                if command.payload.extract(&mut [
+                    tap::messages::PayloadExtractor::String(&mut npc),
+                ]).is_err() {
+                    tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
+                } else {
+                    tap::game::NPC::quest(game, username, &npc)
+                }
+            }
+            tap::messages::CommandKind::Quests => {
+                if command.payload.is_empty() {
+                    tap::game::Player::quests(game, username)
+                } else {
+                    tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
+                }
+            }
             tap::messages::CommandKind::Quit => {
                 if command.payload.is_empty() {
                     tap::messages::Message::Response(tap::messages::Response {
@@ -288,7 +315,7 @@ impl Cli {
                 ]).is_err() {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 } else {
-                    tap::game::NPC::talk(game, &npc)
+                    tap::game::NPC::talk(game, username, &npc)
                 }
             }
             tap::messages::CommandKind::Who => {

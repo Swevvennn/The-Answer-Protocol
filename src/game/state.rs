@@ -43,10 +43,19 @@ pub struct GameState {
     pub rooms: std::collections::HashMap<String, crate::game::RoomState>,
     pub items: std::collections::HashMap<String, crate::game::Item>,
     pub npcs: std::collections::HashMap<String, crate::game::NPC>,
+    pub quests: std::collections::HashMap<String, crate::game::Quest>,
 }
 
 impl GameState {
     pub fn new(path: &str) -> Result<Self, std::io::Error> {
+        fn err_no_identified(kind: &str, id: &str) -> Result<GameState, std::io::Error> {
+            Err(std::io::Error::other(format!("there is no {kind} identified by '{id}'")))
+        }
+
+        fn err_duplicated_id(kind: &str, id: &str) -> Result<GameState, std::io::Error> {
+            Err(std::io::Error::other(format!("duplicated {kind} id '{id}'")))
+        }
+
         let world: World = serde_json::from_str(
             &std::fs::read_to_string(path)?
         )?;
@@ -87,7 +96,7 @@ impl GameState {
                             )));
                         }
                     } else {
-                        return Err(std::io::Error::other(format!("there is no room identified by '{other}'")));
+                        return err_no_identified("room", &other);
                     }
                     if let Some(dest) = positions.get(other) {
                         if let Some(x) = x && let Some(y) = y {
@@ -122,28 +131,122 @@ impl GameState {
         for mut item in world.items {
             item.id = format!("item.{}", item.id);
             if game.items.contains_key(&item.id) {
-                return Err(std::io::Error::other(format!(
-                    "duplicated item id '{}'",
-                    item.id,
-                )));
+                return err_duplicated_id("item", &item.id);
             }
             game.items.insert(
                 item.id.clone(),
                 item,
             );
         }
+        for mut quest in world.quests {
+            quest.id = format!("quest.{}", quest.id);
+            if game.quests.contains_key(&quest.id) {
+                return err_duplicated_id("quest", &quest.id);
+            }
+            for require in quest.requirements.iter_mut() {
+                *require = format!("quest.{require}");
+            }
+            match &mut quest.task {
+                crate::game::QuestKind::Bring {
+                    item,
+                    count: _,
+                } => *item = format!("item.{item}"),
+                crate::game::QuestKind::Kill {
+                    enemy,
+                    count: _,
+                } => *enemy = format!("npc.{enemy}"),
+                crate::game::QuestKind::Talk {
+                    npc,
+                } => *npc = format!("npc.{npc}"),
+                _ => (),
+            }
+            for item in quest.reward.iter_mut() {
+                *item = format!("item.{item}");
+            }
+            game.quests.insert(
+                quest.id.clone(),
+                quest,
+            );
+        }
         for mut npc in world.npcs {
             npc.id = format!("npc.{}", npc.id);
             if game.npcs.contains_key(&npc.id) {
-                return Err(std::io::Error::other(format!(
-                    "duplicated NPC id '{}'",
-                    npc.id,
-                )));
+                return err_duplicated_id("NPC", &npc.id);
+            }
+            if let crate::game::NPCKind::Neutral {
+                dialogues: _,
+                quests,
+                trades: _,
+            } = &mut npc.data {
+                for quest in quests {
+                    *quest = format!("quest.{quest}");
+                    if !game.quests.contains_key(quest) {
+                        return err_no_identified("quest", &quest);
+                    }
+                }
             }
             game.npcs.insert(
                 npc.id.clone(),
                 npc,
             );
+        }
+        for (_, quest) in &game.quests {
+            for require in &quest.requirements {
+                if !game.quests.contains_key(require) {
+                    return err_no_identified("quest", &require);
+                }
+            }
+            for item in &quest.reward {
+                if !game.items.contains_key(item) {
+                    return err_no_identified("item", &item);
+                }
+            }
+            match &quest.task {
+                crate::game::QuestKind::Bring {
+                    item,
+                    count: _,
+                } => {
+                    if !game.items.contains_key(item) {
+                        return err_no_identified("item", &item);
+                    }
+                }
+                crate::game::QuestKind::Kill {
+                    enemy,
+                    count: _,
+                } => {
+                    if let Some(npc) = game.npcs.get(enemy) {
+                        if !npc.is_enemy() {
+                            return Err(std::io::Error::other(format!(
+                                "players will not be able to kill NPC '{}' as it's not an enemy",
+                                npc.id,
+                            )));
+                        }
+                    } else {
+                        return err_no_identified("NPC", &enemy);
+                    }
+                }
+                crate::game::QuestKind::Goto {
+                    room,
+                } => {
+                    if !game.rooms.contains_key(room) {
+                        return err_no_identified("room", &room);
+                    }
+                }
+                crate::game::QuestKind::Talk {
+                    npc,
+                } => {
+                    if let Some(npc) = game.npcs.get(npc) {
+                        if npc.is_enemy() {
+                            return Err(std::io::Error::other(format!(
+                                "players will not be able to talk to NPC '{}' as it's an enemy",
+                                npc.id,
+                            )));
+                        }
+                    } else {
+                        return err_no_identified("NPC", &npc);
+                    }
+                }
+            }
         }
         for spawn in world.spawns {
             match spawn {

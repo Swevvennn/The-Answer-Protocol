@@ -60,24 +60,25 @@ impl RoomState {
     }
 
     pub async fn leave(game: &mut crate::game::GameState, player: &String) {
-        let player = &game.players[player];
-        if let Some(room) = game.rooms.get_mut(&player.room) {
-            room.players.remove(&player.username);
-            if room.players.is_empty() {
-                room.npcs.append(&mut room.dead_npcs);
+        if let Some(player) = game.players.get(player) {
+            if let Some(room) = game.rooms.get_mut(&player.room) {
+                room.players.remove(&player.username);
+                if room.players.is_empty() {
+                    room.npcs.append(&mut room.dead_npcs);
+                }
             }
+            crate::cli::Logger::event(
+                &player.room,
+                game,
+                &crate::messages::Event {
+                    scope: crate::messages::EventScope::Room,
+                    kind: crate::messages::EventKind::PresenceLeave,
+                    payload: crate::messages::Payload::new(&[
+                        crate::messages::PayloadKind::String(player.username.clone()),
+                    ]),
+                },
+                |to| to.username != player.username && to.room == player.room,
+            ).await;
         }
-        crate::cli::Logger::event(
-            &player.room,
-            game,
-            &crate::messages::Event {
-                scope: crate::messages::EventScope::Room,
-                kind: crate::messages::EventKind::PresenceLeave,
-                payload: crate::messages::Payload::new(&[
-                    crate::messages::PayloadKind::String(player.username.clone()),
-                ]),
-            },
-            |to| to.username != player.username && to.room == player.room,
-        ).await;
     }
 }

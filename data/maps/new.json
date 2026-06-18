@@ -46,6 +46,13 @@
     ],
     "npcs": [
         {
+            "id": "gagagougouk",
+            "name": "Gagagougouk",
+            "data": {
+                "quests": ["test"]
+            }
+        },
+        {
             "id": "welcomer",
             "name": "Welcomer",
             "data": {
@@ -53,7 +60,22 @@
             }
         }
     ],
-    "quests": [],
+    "quests": [
+        {
+            "id": "test",
+            "name": "Welcome",
+            "description": "Go talk to the welcomer",
+            "autocomplete": true,
+            "task": {
+                "npc": "welcomer"
+            },
+            "reward": [
+                "coin",
+                "coin",
+                "coin"
+            ]
+        }
+    ],
     "spawns": [
         {
             "room": "start",
@@ -63,6 +85,10 @@
         {
             "room": "start",
             "npc": "welcomer"
+        },
+        {
+            "room": "start",
+            "npc": "gagagougouk"
         }
     ]
 }

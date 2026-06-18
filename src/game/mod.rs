@@ -17,6 +17,8 @@ pub use player::Player;
 mod quest;
 pub use quest::Quest;
 pub use quest::QuestKind;
+pub use quest::QuestProgress;
+pub use quest::QuestStatus;
 
 mod room;
 pub use room::Room;

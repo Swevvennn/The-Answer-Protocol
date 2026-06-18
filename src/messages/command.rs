@@ -5,8 +5,10 @@ use strum::IntoEnumIterator;
     strum_macros::EnumIter,
 )]
 pub enum CommandKind {
+    AbandonQuest,
     Attack,
     Chat,
+    CompleteQuest,
     Connect,
     Drop,
     GroupCreate,
@@ -16,8 +18,8 @@ pub enum CommandKind {
     Inventory,
     Look,
     Move,
-    Quest,
     Quests,
+    Quest,
     Quit,
     Status,
     Take,
@@ -38,8 +40,10 @@ impl CommandKind {
 impl std::fmt::Display for CommandKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::AbandonQuest => write!(f, "ABANDON QUEST"),
             Self::Attack => write!(f, "ATTACK"),
             Self::Chat => write!(f, "CHAT"),
+            Self::CompleteQuest => write!(f, "COMPLETE QUEST"),
             Self::Connect => write!(f, "CONNECT"),
             Self::Drop => write!(f, "DROP"),
             Self::GroupCreate => write!(f, "GROUP CREATE"),
