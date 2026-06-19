@@ -47,35 +47,72 @@ impl NPC {
         self.data.is_enemy()
     }
 
-    pub fn talk(game: &mut crate::game::GameState, player: &String, npc: &String) -> crate::messages::Message {
+    pub async fn talk(game: &mut crate::game::GameState, player: &String, npc: &String) -> crate::messages::Message {
+        let mut dialogue = "...".to_string();
         if let Some(npc) = game.npcs.get(npc) {
             if let NPCKind::Neutral {
                 dialogues,
-                quests: _,
+                quests,
                 trades: _,
             } = &npc.data {
-                let mut dialogue =  "...".to_string();
-                let mut rng = rand::rng();
-                if let Some(choosed) = dialogues.choose(&mut rng) {
-                    dialogue = choosed.clone();
-                }
+                let mut event = None;
                 if let Some(player) = game.players.get_mut(player) {
-                    crate::game::Player::update_quests(&game.quests, player, "talk", &npc.id);
+                    for quest in quests {
+                        if let Some(quest) = player.quests.get_mut(quest) && matches!(quest.status, crate::game::QuestStatus::Active) && quest.is_complete(&game.quests) {
+                            let reference = &game.quests[&quest.quest];
+                            if let crate::game::QuestKind::Bring {
+                                item,
+                                count,
+                            } = &reference.task {
+                                for _ in 0..*count {
+                                    player.items.remove(player.items.iter().position(|i| i == item).unwrap());
+                                }
+                            }
+                            player.items.append(&mut reference.reward.clone());
+                            quest.status = crate::game::QuestStatus::Completed;
+                            if !reference.thanks.is_empty() {
+                                dialogue = reference.thanks.clone();
+                            }
+                            event = Some(crate::messages::Event {
+                                scope: crate::messages::EventScope::Player,
+                                kind: crate::messages::EventKind::QuestComplete,
+                                payload: crate::messages::Payload::new(&[
+                                    crate::messages::PayloadKind::String(quest.quest.clone()),
+                                ]),
+                            });
+                            break;
+                        }
+                    }
                 }
-                crate::messages::Message::Response(crate::messages::Response {
-                    payload: crate::messages::Payload::new(&[
-                        crate::messages::PayloadKind::String(dialogue)
-                    ]),
-                })
+                if let Some(event) = event {
+                    crate::cli::Logger::event(
+                        &player,
+                        game,
+                        &event,
+                        |to| to.username == *player,
+                    ).await;
+                } else {
+                    let mut rng = rand::rng();
+                    if let Some(choosed) = dialogues.choose(&mut rng) {
+                        dialogue = choosed.clone();
+                    }
+                }
             } else {
-                crate::messages::Message::Error(crate::messages::Error::NPCNotNeutral)
+                return crate::messages::Message::Error(crate::messages::Error::NPCNotNeutral);
             }
         } else {
-            crate::messages::Message::Error(crate::messages::Error::NPCNotFound)
+            return crate::messages::Message::Error(crate::messages::Error::NPCNotFound);
         }
+        crate::game::Player::update_quests(game, player, "talk", npc).await;
+        crate::messages::Message::Response(crate::messages::Response {
+            payload: crate::messages::Payload::new(&[
+                crate::messages::PayloadKind::String(dialogue)
+            ]),
+        })
     }
 
-    pub fn quest(game: &mut crate::game::GameState, player: &String, npc: &String) -> crate::messages::Message {
+    pub async fn quest(game: &mut crate::game::GameState, player: &String, npc: &String) -> crate::messages::Message {
+        let mut new_quest = String::new();
         if let Some(npc) = game.npcs.get(npc) {
             if let NPCKind::Neutral {
                 dialogues: _,
@@ -83,8 +120,9 @@ impl NPC {
                 trades: _,
             } = &npc.data {
                 if let Some(player) = game.players.get_mut(player) {
+                    let mut ok = false;
                     for quest in quests {
-                        let mut ok = true;
+                        ok = true;
                         if let Some(quest) = player.quests.get_mut(quest) {
                             if matches!(quest.status, crate::game::QuestStatus::Abandoned) {
                                 quest.status = crate::game::QuestStatus::Active;
@@ -102,28 +140,35 @@ impl NPC {
                             if ok {
                                 player.quests.insert(
                                     quest.id.clone(),
-                                    crate::game::QuestProgress::new(quest),
+                                    crate::game::QuestProgress::new(
+                                        npc.id.clone(),
+                                        quest,
+                                    ),
                                 );
                             }
                         }
                         if ok {
-                            crate::game::Player::update_quests(&game.quests, player, "", "");
-                            return crate::messages::Message::Response(crate::messages::Response {
-                                payload: crate::messages::Payload::new(&[
-                                    crate::messages::PayloadKind::new_json(&quest),
-                                ]),
-                            });
+                            new_quest = quest.clone();
+                            break;
                         }
                     }
-                    crate::messages::Message::Error(crate::messages::Error::NoQuestAvailable)
+                    if !ok {
+                        return crate::messages::Message::Error(crate::messages::Error::NoQuestAvailable);
+                    }
                 } else {
-                    crate::messages::Message::Error(crate::messages::Error::ServerError)
+                    return crate::messages::Message::Error(crate::messages::Error::ServerError);
                 }
             } else {
-                crate::messages::Message::Error(crate::messages::Error::NPCNotNeutral)
+                return crate::messages::Message::Error(crate::messages::Error::NPCNotNeutral);
             }
         } else {
-            crate::messages::Message::Error(crate::messages::Error::NPCNotFound)
+            return crate::messages::Message::Error(crate::messages::Error::NPCNotFound);
         }
+        crate::game::Player::update_quests(game, player, "", "").await;
+        crate::messages::Message::Response(crate::messages::Response {
+            payload: crate::messages::Payload::new(&[
+                crate::messages::PayloadKind::new_json(&game.quests[&new_quest]),
+            ]),
+        })
     }
 }

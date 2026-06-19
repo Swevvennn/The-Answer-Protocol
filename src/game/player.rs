@@ -116,9 +116,7 @@ impl Player {
         }
         crate::game::RoomState::leave(game, player).await;
         crate::game::RoomState::enter(game, player, &room).await;
-        if let Some(player) = game.players.get_mut(player) {
-            Self::update_quests(&game.quests, player, "room", &player.room.clone());
-        }
+        Self::update_quests(game, player, "room", &game.players[player].room.clone()).await;
         crate::messages::Message::Response(crate::messages::Response {
             payload: crate::messages::Payload::new(&[
                 crate::messages::PayloadKind::KeyValue {
@@ -129,25 +127,25 @@ impl Player {
         })
     }
 
-    pub fn take(game: &mut crate::game::GameState, player: &String, item: &String) -> crate::messages::Message {
+    pub async fn take(game: &mut crate::game::GameState, player: &String, item: &String) -> crate::messages::Message {
         if let Some(player) = game.players.get_mut(player) && let Some(room) = game.rooms.get_mut(&player.room) {
             if let Some(i) = room.items.iter().position(|i| *i == *item) {
                 player.items.push(room.items.remove(i));
-                Self::update_quests(&game.quests, player, "item", item);
-                crate::messages::Message::Response(crate::messages::Response {
-                    payload: crate::messages::Payload::new(&[
-                        crate::messages::PayloadKind::KeyValue {
-                            key: "taken".to_string(),
-                            value: item.clone(),
-                        },
-                    ]),
-                })
             } else {
-                crate::messages::Message::Error(crate::messages::Error::ItemNotFound)
+                return crate::messages::Message::Error(crate::messages::Error::ItemNotFound)
             }
         } else {
-            crate::messages::Message::Error(crate::messages::Error::ServerError)
+            return crate::messages::Message::Error(crate::messages::Error::ServerError)
         }
+        Self::update_quests(game, player, "item", item).await;
+        crate::messages::Message::Response(crate::messages::Response {
+            payload: crate::messages::Payload::new(&[
+                crate::messages::PayloadKind::KeyValue {
+                    key: "taken".to_string(),
+                    value: item.clone(),
+                },
+            ]),
+        })
     }
 
     pub fn abandon_quest(game: &mut crate::game::GameState, player: &String, quest: &String) -> crate::messages::Message {
@@ -167,67 +165,82 @@ impl Player {
         }
     }
 
-    pub fn drop(game: &mut crate::game::GameState, player: &String, item: &String) -> crate::messages::Message {
+    pub async fn drop(game: &mut crate::game::GameState, player: &String, item: &String) -> crate::messages::Message {
         if let Some(player) = game.players.get_mut(player) && let Some(room) = game.rooms.get_mut(&player.room) {
             if let Some(i) = player.items.iter().position(|i| *i == *item) {
                 room.items.push(player.items.remove(i));
-                Self::update_quests(&game.quests, player, "item", item);
-                crate::messages::Message::Response(crate::messages::Response {
-                    payload: crate::messages::Payload::new(&[
-                        crate::messages::PayloadKind::KeyValue {
-                            key: "dropped".to_string(),
-                            value: item.clone(),
-                        },
-                    ]),
-                })
             } else {
-                crate::messages::Message::Error(crate::messages::Error::ItemNotInInventory)
+                return crate::messages::Message::Error(crate::messages::Error::ItemNotInInventory)
             }
         } else {
-            crate::messages::Message::Error(crate::messages::Error::ServerError)
+            return crate::messages::Message::Error(crate::messages::Error::ServerError)
         }
+        Self::update_quests(game, player, "item", item).await;
+        crate::messages::Message::Response(crate::messages::Response {
+            payload: crate::messages::Payload::new(&[
+                crate::messages::PayloadKind::KeyValue {
+                    key: "dropped".to_string(),
+                    value: item.clone(),
+                },
+            ]),
+        })
     }
 
-    pub fn update_quests(quests: &std::collections::HashMap<String, crate::game::Quest>, player: &mut Player, kind: &str, value: &str) {
-        for (id, quest) in player.quests.iter_mut() {
-            if matches!(quest.status, crate::game::QuestStatus::Active) {
-                let reference = &quests[id];
-                if match &reference.task {
-                    crate::game::QuestKind::Bring {
-                        item,
-                        count,
-                    } if kind.is_empty() || kind== "item" && item == value => {
-                        quest.progress = player.items
+    pub async fn update_quests(game: &mut crate::game::GameState, player: &String, kind: &str, value: &str) {
+        let mut completed = Vec::new();
+        if let Some(player) = game.players.get_mut(player) {
+            for (id, quest) in player.quests.iter_mut() {
+                if matches!(quest.status, crate::game::QuestStatus::Active) {
+                    let reference = &game.quests[id];
+                    match &reference.task {
+                        crate::game::QuestKind::Bring {
+                            item,
+                            count,
+                        } if kind.is_empty() || kind == "item" && item == value => quest.progress = std::cmp::min(*count, player.items
                             .iter()
                             .filter(|s| **s == *item)
-                            .count() as u32;
-                        reference.autocomplete && quest.progress == *count
+                            .count() as u32),
+                        crate::game::QuestKind::Goto {
+                            room
+                        } if kind.is_empty() || kind == "room" && room == value => quest.progress = (player.room == *room) as u32,
+                        crate::game::QuestKind::Kill {
+                            enemy,
+                            count,
+                        } if kind == "kill" && enemy == value => quest.progress = std::cmp::min(*count, quest.progress + 1),
+                        crate::game::QuestKind::Talk {
+                            npc
+                        } if kind == "talk" && npc == value => quest.progress = 1,
+                        _ => (),
                     }
-                    crate::game::QuestKind::Goto {
-                        room
-                    } if kind.is_empty() || kind == "room" && room == value => {
-                        quest.progress = (player.room == *room) as u32;
-                        reference.autocomplete && quest.progress == 1
+                    if reference.autocomplete && quest.is_complete(&game.quests) {
+                        if let crate::game::QuestKind::Bring {
+                            item,
+                            count,
+                        } = &reference.task {
+                            for _ in 0..*count {
+                                player.items.remove(player.items.iter().position(|i| i == item).unwrap());
+                            }
+                        }
+                        player.items.append(&mut reference.reward.clone());
+                        quest.status = crate::game::QuestStatus::Completed;
+                        completed.push(id.clone());
                     }
-                    crate::game::QuestKind::Kill {
-                        enemy,
-                        count,
-                    } if kind == "kill" && enemy == value => {
-                        quest.progress += 1;
-                        reference.autocomplete && quest.progress == *count
-                    }
-                    crate::game::QuestKind::Talk {
-                        npc
-                    } if kind == "talk" && npc == value => {
-                        quest.progress = 1;
-                        reference.autocomplete
-                    }
-                    _ => false,
-                } {
-                    player.items.append(&mut reference.reward.clone());
-                    quest.status = crate::game::QuestStatus::Completed;
                 }
             }
+        }
+        for quest in completed {
+            crate::cli::Logger::event(
+                player,
+                game,
+                &crate::messages::Event {
+                    scope: crate::messages::EventScope::Player,
+                    kind: crate::messages::EventKind::QuestComplete,
+                    payload: crate::messages::Payload::new(&[
+                        crate::messages::PayloadKind::String(quest),
+                    ]),
+                },
+                |to| to.username == *player,
+            ).await;
         }
     }
 }

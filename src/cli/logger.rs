@@ -73,6 +73,7 @@ impl Logger {
             match event.scope {
                 crate::messages::EventScope::Global => "global".to_string(),
                 crate::messages::EventScope::Group => format!("group \x1b[0;35m{}\x1b[0;0m", details),
+                crate::messages::EventScope::Player => format!("player \x1b[0;35m{}\x1b[0;0m", details),
                 crate::messages::EventScope::Room => format!("room \x1b[0;35m{}\x1b[0;0m", details),
                 crate::messages::EventScope::Stats => "stats".to_string(),
             },

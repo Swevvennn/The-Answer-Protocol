@@ -49,7 +49,7 @@
             "id": "gagagougouk",
             "name": "Gagagougouk",
             "data": {
-                "quests": ["test"]
+                "quests": ["welcome", "bring_coins"]
             }
         },
         {
@@ -62,7 +62,7 @@
     ],
     "quests": [
         {
-            "id": "test",
+            "id": "welcome",
             "name": "Welcome",
             "description": "Go talk to the welcomer",
             "autocomplete": true,
@@ -72,6 +72,20 @@
             "reward": [
                 "coin",
                 "coin",
+                "coin"
+            ]
+        },
+        {
+            "id": "bring_coins",
+            "name": "Bring coins",
+            "description": "Bring me 3 coins",
+            "requirements": ["welcome"],
+            "thanks": "Thank you for those 3 coins, here is one another",
+            "task": {
+                "item": "coin",
+                "count": 3
+            },
+            "reward": [
                 "coin"
             ]
         }

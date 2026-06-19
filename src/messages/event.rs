@@ -7,6 +7,7 @@ use strum::IntoEnumIterator;
 pub enum EventScope {
     Global,
     Group,
+    Player,
     Stats,
     Room,
 }
@@ -18,6 +19,7 @@ impl std::str::FromStr for EventScope {
         match s {
             "GLOBAL" => Ok(Self::Global),
             "GROUP" => Ok(Self::Group),
+            "PLAYER" => Ok(Self::Player),
             "STATS" => Ok(Self::Stats),
             "ROOM" => Ok(Self::Room),
             _ => Err(crate::utils::invalid_input(&format!("invalid scope '{s}'"))),
@@ -30,6 +32,7 @@ impl std::fmt::Display for EventScope {
         match self {
             Self::Global => write!(f, "GLOBAL"),
             Self::Group => write!(f, "GROUP"),
+            Self::Player => write!(f, "PLAYER"),
             Self::Stats => write!(f, "STATS"),
             Self::Room => write!(f, "ROOM"),
         }
@@ -48,6 +51,7 @@ pub enum EventKind {
     Players,
     PresenceEnter,
     PresenceLeave,
+    QuestComplete,
 }
 
 impl std::fmt::Display for EventKind {
@@ -60,6 +64,7 @@ impl std::fmt::Display for EventKind {
             Self::Players => write!(f, "PLAYERS"),
             Self::PresenceEnter => write!(f, "PRESENCE ENTER"),
             Self::PresenceLeave => write!(f, "PRESENCE LEAVE"),
+            Self::QuestComplete => write!(f, "QUEST COMPLETE"),
         }
     }
 }

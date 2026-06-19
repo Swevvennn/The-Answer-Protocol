@@ -32,6 +32,9 @@ pub struct Quest {
     pub description: String,
 
     #[serde(default)]
+    pub thanks: String,
+
+    #[serde(default)]
     pub autocomplete: bool,
 
     #[serde(default)]
@@ -59,17 +62,39 @@ pub enum QuestStatus {
     serde::Serialize,
 )]
 pub struct QuestProgress {
+    pub giver: String,
     pub quest: String,
     pub status: QuestStatus,
     pub progress: u32,
 }
 
 impl QuestProgress {
-    pub fn new(quest: &Quest) -> Self {
+    pub fn new(giver: String, quest: &Quest) -> Self {
         Self {
+            giver,
             quest: quest.id.clone(),
             status: QuestStatus::Active,
             progress: 0,
+        }
+    }
+
+    pub fn is_complete(&self, quests: &std::collections::HashMap<String, crate::game::Quest>) -> bool {
+        let reference = &quests[&self.quest];
+        match &reference.task {
+            crate::game::QuestKind::Bring {
+                item: _,
+                count,
+            } => self.progress == *count,
+            crate::game::QuestKind::Goto {
+                room: _,
+            } => self.progress == 1,
+            crate::game::QuestKind::Kill {
+                enemy: _,
+                count,
+            } => self.progress == *count,
+            crate::game::QuestKind::Talk {
+                npc: _,
+            } => self.progress == 1,
         }
     }
 }

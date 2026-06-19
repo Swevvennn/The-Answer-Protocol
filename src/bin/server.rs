@@ -209,7 +209,7 @@ impl Cli {
                 ]).is_err() {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 } else {
-                    tap::game::Player::drop(game, username, &item)
+                    tap::game::Player::drop(game, username, &item).await
                 }
             }
             tap::messages::CommandKind::GroupCreate => {
@@ -277,7 +277,7 @@ impl Cli {
                 ]).is_err() {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 } else {
-                    tap::game::NPC::quest(game, username, &npc)
+                    tap::game::NPC::quest(game, username, &npc).await
                 }
             }
             tap::messages::CommandKind::Quests => {
@@ -305,7 +305,7 @@ impl Cli {
                 ]).is_err() {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 } else {
-                    tap::game::Player::take(game, username, &item)
+                    tap::game::Player::take(game, username, &item).await
                 }
             }
             tap::messages::CommandKind::Talk => {
@@ -315,7 +315,7 @@ impl Cli {
                 ]).is_err() {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 } else {
-                    tap::game::NPC::talk(game, username, &npc)
+                    tap::game::NPC::talk(game, username, &npc).await
                 }
             }
             tap::messages::CommandKind::Who => {
