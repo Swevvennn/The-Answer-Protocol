@@ -25,7 +25,7 @@ impl Group {
             }
             player.group = player.username.clone();
         }
-        let mut group = Self::new(&player);
+        let mut group = Self::new(player);
         group.players.insert(player.clone());
         game.groups.insert(group.name.clone(), group);
         crate::messages::Message::Response(crate::messages::Response {
@@ -50,7 +50,7 @@ impl Group {
             group.invited.insert(invited.clone());
         }
         crate::cli::Logger::event(
-            &invited,
+            invited,
             game,
             &crate::messages::Event {
                 scope: crate::messages::EventScope::Group,
@@ -80,7 +80,7 @@ impl Group {
             player.group = group.clone();
         }
         crate::cli::Logger::event(
-            &group,
+            group,
             game,
             &crate::messages::Event {
                 scope: crate::messages::EventScope::Group,
@@ -132,7 +132,7 @@ impl Group {
             }
         }
         crate::cli::Logger::event(
-            &player,
+            player,
             game,
             &crate::messages::Event {
                 scope: crate::messages::EventScope::Group,

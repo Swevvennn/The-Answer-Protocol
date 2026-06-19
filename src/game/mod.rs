@@ -8,8 +8,8 @@ mod item;
 pub use item::Item;
 
 mod npc;
-pub use npc::NPC;
-pub use npc::NPCKind;
+pub use npc::Npc;
+pub use npc::NpcKind;
 
 mod player;
 pub use player::Player;

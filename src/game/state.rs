@@ -6,7 +6,7 @@
 pub enum WorldData {
     Group(crate::game::Group),
     Item(crate::game::Item),
-    NPC(crate::game::NPC),
+    Npc(crate::game::Npc),
     Quest(crate::game::Quest),
 }
 
@@ -28,7 +28,7 @@ enum SpawnKind {
         #[serde(default = "default_count")]
         count: usize,
     },
-    NPC {
+    Npc {
         room: String,
         npc: String,
     },
@@ -43,7 +43,7 @@ enum SpawnKind {
 struct World {
     pub rooms: Vec<crate::game::Room>,
     pub items: Vec<crate::game::Item>,
-    pub npcs: Vec<crate::game::NPC>,
+    pub npcs: Vec<crate::game::Npc>,
     pub quests: Vec<crate::game::Quest>,
     pub spawns: Vec<SpawnKind>,
 }
@@ -54,7 +54,7 @@ pub struct GameState {
     pub groups: std::collections::HashMap<String, crate::game::Group>,
     pub rooms: std::collections::HashMap<String, crate::game::RoomState>,
     pub items: std::collections::HashMap<String, crate::game::Item>,
-    pub npcs: std::collections::HashMap<String, crate::game::NPC>,
+    pub npcs: std::collections::HashMap<String, crate::game::Npc>,
     pub quests: std::collections::HashMap<String, crate::game::Quest>,
 }
 
@@ -92,53 +92,51 @@ impl GameState {
             );
         }
         if !game.rooms.contains_key("room.start") {
-            return Err(std::io::Error::other(format!("missing room 'start' used as spawn point")));
+            return Err(std::io::Error::other("missing room 'start' used as spawn point"));
         }
         let mut positions: std::collections::HashMap<String, (i32, i32)> = std::collections::HashMap::new();
-        loop {
+        positions.insert("room.start".to_string(), (0, 0));
+        while positions.len() != game.rooms.len() {
             for (id, room) in &game.rooms {
-                let (mut x, mut y) = (None, None);
-                for (direction, other) in &room.room.exits {
-                    if let Some(other) = game.rooms.get(other) {
-                        if !other.room.exits.contains_key(&direction.opposite()) || other.room.exits[&direction.opposite()] != room.room.id {
-                            return Err(std::io::Error::other(format!(
-                                "the path between '{}' and '{}' is not reversible",
-                                id,
-                                other.room.id,
-                            )));
-                        }
-                    } else {
-                        return err_no_identified("room", &other);
-                    }
-                    if let Some(dest) = positions.get(other) {
-                        if let Some(x) = x && let Some(y) = y {
-                            if match direction {
-                                crate::game::Direction::East => x != dest.0 - 1 || y != dest.1,
-                                crate::game::Direction::North => x != dest.0 || y != dest.1 + 1,
-                                crate::game::Direction::South => x != dest.0 || y != dest.1 - 1,
-                                crate::game::Direction::West => x != dest.0 + 1 || y != dest.1,
-                            } {
-                                return Err(std::io::Error::other("the rooms are not arranged in a geometrically correct way"));
+                if !positions.contains_key(id) {
+                    let (mut x, mut y) = (None, None);
+                    for (direction, other) in &room.room.exits {
+                        if let Some(other) = game.rooms.get(other) {
+                            if !other.room.exits.contains_key(&direction.opposite()) || other.room.exits[&direction.opposite()] != room.room.id {
+                                return Err(std::io::Error::other(format!(
+                                    "the path between '{}' and '{}' is not reversible",
+                                    id,
+                                    other.room.id,
+                                )));
                             }
                         } else {
-                            match direction {
-                                crate::game::Direction::East => { x = Some(dest.0 - 1); y = Some(dest.1); }
-                                crate::game::Direction::North => { x = Some(dest.0); y = Some(dest.1 + 1); }
-                                crate::game::Direction::South => { x = Some(dest.0); y = Some(dest.1 - 1); }
-                                crate::game::Direction::West => { x = Some(dest.0 + 1); y = Some(dest.1); }
+                            return err_no_identified("room", other);
+                        }
+                        if let Some(dest) = positions.get(other) {
+                            if let Some(x) = x && let Some(y) = y {
+                                if match direction {
+                                    crate::game::Direction::East => x != dest.0 - 1 || y != dest.1,
+                                    crate::game::Direction::North => x != dest.0 || y != dest.1 + 1,
+                                    crate::game::Direction::South => x != dest.0 || y != dest.1 - 1,
+                                    crate::game::Direction::West => x != dest.0 + 1 || y != dest.1,
+                                } {
+                                    return Err(std::io::Error::other("the rooms are not arranged in a geometrically correct way"));
+                                }
+                            } else {
+                                match direction {
+                                    crate::game::Direction::East => { x = Some(dest.0 - 1); y = Some(dest.1); }
+                                    crate::game::Direction::North => { x = Some(dest.0); y = Some(dest.1 + 1); }
+                                    crate::game::Direction::South => { x = Some(dest.0); y = Some(dest.1 - 1); }
+                                    crate::game::Direction::West => { x = Some(dest.0 + 1); y = Some(dest.1); }
+                                }
                             }
                         }
                     }
-                }
-                if let Some(x) = x && let Some(y) = y {
-                    positions.insert(id.clone(), (x, y));
-                    continue;
-                } else if positions.is_empty() {
-                    positions.insert(id.clone(), (0, 0));
-                    continue;
+                    if let Some(x) = x && let Some(y) = y {
+                        positions.insert(id.clone(), (x, y));
+                    }
                 }
             }
-            break;
         }
         for mut item in world.items {
             item.id = format!("item.{}", item.id);
@@ -183,9 +181,9 @@ impl GameState {
         for mut npc in world.npcs {
             npc.id = format!("npc.{}", npc.id);
             if game.npcs.contains_key(&npc.id) {
-                return err_duplicated_id("NPC", &npc.id);
+                return err_duplicated_id("Npc", &npc.id);
             }
-            if let crate::game::NPCKind::Neutral {
+            if let crate::game::NpcKind::Neutral {
                 dialogues: _,
                 quests,
                 trades: _,
@@ -193,7 +191,7 @@ impl GameState {
                 for quest in quests {
                     *quest = format!("quest.{quest}");
                     if !game.quests.contains_key(quest) {
-                        return err_no_identified("quest", &quest);
+                        return err_no_identified("quest", quest);
                     }
                 }
             }
@@ -202,15 +200,15 @@ impl GameState {
                 npc,
             );
         }
-        for (_, quest) in &game.quests {
+        for quest in game.quests.values() {
             for require in &quest.requirements {
                 if !game.quests.contains_key(require) {
-                    return err_no_identified("quest", &require);
+                    return err_no_identified("quest", require);
                 }
             }
             for item in &quest.reward {
                 if !game.items.contains_key(item) {
-                    return err_no_identified("item", &item);
+                    return err_no_identified("item", item);
                 }
             }
             match &quest.task {
@@ -219,7 +217,7 @@ impl GameState {
                     count: _,
                 } => {
                     if !game.items.contains_key(item) {
-                        return err_no_identified("item", &item);
+                        return err_no_identified("item", item);
                     }
                 }
                 crate::game::QuestKind::Kill {
@@ -234,14 +232,14 @@ impl GameState {
                             )));
                         }
                     } else {
-                        return err_no_identified("NPC", &enemy);
+                        return err_no_identified("NPC", enemy);
                     }
                 }
                 crate::game::QuestKind::Goto {
                     room,
                 } => {
                     if !game.rooms.contains_key(room) {
-                        return err_no_identified("room", &room);
+                        return err_no_identified("room", room);
                     }
                 }
                 crate::game::QuestKind::Talk {
@@ -255,7 +253,7 @@ impl GameState {
                             )));
                         }
                     } else {
-                        return err_no_identified("NPC", &npc);
+                        return err_no_identified("NPC", npc);
                     }
                 }
             }
@@ -278,7 +276,7 @@ impl GameState {
                         return Err(std::io::Error::other(format!("there is no room identified by '{room}'")));
                     }
                 }
-                SpawnKind::NPC {
+                SpawnKind::Npc {
                     mut room,
                     mut npc,
                 } => {

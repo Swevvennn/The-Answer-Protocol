@@ -287,7 +287,7 @@ impl Cli {
                 ]).is_err() {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 } else {
-                    tap::game::NPC::quest(game, username, &npc).await
+                    tap::game::Npc::quest(game, username, &npc).await
                 }
             }
             tap::messages::CommandKind::Quests => {
@@ -325,7 +325,7 @@ impl Cli {
                 ]).is_err() {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 } else {
-                    tap::game::NPC::talk(game, username, &npc).await
+                    tap::game::Npc::talk(game, username, &npc).await
                 }
             }
             tap::messages::CommandKind::Who => {

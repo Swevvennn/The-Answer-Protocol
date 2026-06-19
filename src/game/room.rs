@@ -46,7 +46,7 @@ impl RoomState {
             room.players.insert(player.clone());
         }
         crate::cli::Logger::event(
-            &room,
+            room,
             game,
             &crate::messages::Event {
                 scope: crate::messages::EventScope::Room,

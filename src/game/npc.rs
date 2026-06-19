@@ -6,7 +6,7 @@ use rand::seq::IndexedRandom;
 )]
 #[serde(deny_unknown_fields)]
 #[serde(untagged)]
-pub enum NPCKind {
+pub enum NpcKind {
     Enemy {
         hp: u32,
     },
@@ -25,7 +25,7 @@ pub enum NPCKind {
     },
 }
 
-impl NPCKind {
+impl NpcKind {
     pub fn is_enemy(&self) -> bool {
         matches!(self, Self::Enemy { hp: _ })
     }
@@ -36,13 +36,13 @@ impl NPCKind {
     serde::Serialize,
 )]
 #[serde(deny_unknown_fields)]
-pub struct NPC {
+pub struct Npc {
     pub id: String,
     pub name: String,
-    pub data: NPCKind,
+    pub data: NpcKind,
 }
 
-impl NPC {
+impl Npc {
     pub fn is_enemy(&self) -> bool {
         self.data.is_enemy()
     }
@@ -50,7 +50,7 @@ impl NPC {
     pub async fn talk(game: &mut crate::game::GameState, player: &String, npc: &String) -> crate::messages::Message {
         let mut dialogue = "...".to_string();
         if let Some(npc) = game.npcs.get(npc) {
-            if let NPCKind::Neutral {
+            if let NpcKind::Neutral {
                 dialogues,
                 quests,
                 trades: _,
@@ -86,7 +86,7 @@ impl NPC {
                 }
                 if let Some(event) = event {
                     crate::cli::Logger::event(
-                        &player,
+                        player,
                         game,
                         &event,
                         |to| to.username == *player,
@@ -114,7 +114,7 @@ impl NPC {
     pub async fn quest(game: &mut crate::game::GameState, player: &String, npc: &String) -> crate::messages::Message {
         let mut new_quest = String::new();
         if let Some(npc) = game.npcs.get(npc) {
-            if let NPCKind::Neutral {
+            if let NpcKind::Neutral {
                 dialogues: _,
                 quests,
                 trades: _,

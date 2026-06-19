@@ -57,7 +57,7 @@ impl Player {
         }
     }
 
-    pub async fn chat(game: &crate::game::GameState, player: &String, scope: &crate::messages::EventScope, message: &String) -> crate::messages::Message {
+    pub async fn chat(game: &crate::game::GameState, player: &String, scope: &crate::messages::EventScope, message: &str) -> crate::messages::Message {
         let player = &game.players[player];
         crate::cli::Logger::event(
             match scope {
@@ -71,7 +71,7 @@ impl Player {
                 kind: crate::messages::EventKind::Chat,
                 payload: crate::messages::Payload::new(&[
                     crate::messages::PayloadKind::String(player.username.clone()),
-                    crate::messages::PayloadKind::String(message.clone()),
+                    crate::messages::PayloadKind::String(message.to_string()),
                 ]),
             },
             |to| match scope {
@@ -109,7 +109,7 @@ impl Player {
 
     pub async fn move_to(game: &mut crate::game::GameState, player: &String, direction: &crate::game::Direction) -> crate::messages::Message {
         let room: String;
-        if let Some(s) = game.rooms[&game.players[player].room].room.exits.get(&direction) {
+        if let Some(s) = game.rooms[&game.players[player].room].room.exits.get(direction) {
             room = s.clone();
         } else {
             return crate::messages::Message::Error(crate::messages::Error::NoExit);
