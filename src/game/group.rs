@@ -1,4 +1,8 @@
-#[derive(Default)]
+#[derive(
+    Default,
+    serde::Deserialize,
+    serde::Serialize,
+)]
 pub struct Group {
     pub name: String,
     pub players: std::collections::HashSet<String>,

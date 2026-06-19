@@ -1,3 +1,15 @@
+#[derive(
+    serde::Deserialize,
+    serde::Serialize,
+)]
+#[serde(untagged)]
+pub enum WorldData {
+    Group(crate::game::Group),
+    Item(crate::game::Item),
+    NPC(crate::game::NPC),
+    Quest(crate::game::Quest),
+}
+
 fn default_count() -> usize {
     1
 }
@@ -284,5 +296,51 @@ impl GameState {
             }
         }
         Ok(game)
+    }
+
+    pub fn describe(&self, id: &String) -> crate::messages::Message {
+        if id.starts_with("group.") {
+            if let Some(group) = self.groups.get(id) {
+                crate::messages::Message::Response(crate::messages::Response {
+                    payload: crate::messages::Payload::new(&[
+                        crate::messages::PayloadKind::new_json(group),
+                    ]),
+                })
+            } else {
+                crate::messages::Message::Error(crate::messages::Error::GroupNotFound)
+            }
+        } else if id.starts_with("item.") {
+            if let Some(item) = self.items.get(id) {
+                crate::messages::Message::Response(crate::messages::Response {
+                    payload: crate::messages::Payload::new(&[
+                        crate::messages::PayloadKind::new_json(item),
+                    ]),
+                })
+            } else {
+                crate::messages::Message::Error(crate::messages::Error::ItemNotFound)
+            }
+        } else if id.starts_with("npc.") {
+            if let Some(npc) = self.npcs.get(id) {
+                crate::messages::Message::Response(crate::messages::Response {
+                    payload: crate::messages::Payload::new(&[
+                        crate::messages::PayloadKind::new_json(npc),
+                    ]),
+                })
+            } else {
+                crate::messages::Message::Error(crate::messages::Error::NPCNotFound)
+            }
+        } else if id.starts_with("quest.") {
+            if let Some(quest) = self.quests.get(id) {
+                crate::messages::Message::Response(crate::messages::Response {
+                    payload: crate::messages::Payload::new(&[
+                        crate::messages::PayloadKind::new_json(quest),
+                    ]),
+                })
+            } else {
+                crate::messages::Message::Error(crate::messages::Error::QuestNotFound)
+            }
+        } else {
+            crate::messages::Message::Error(crate::messages::Error::InvalidArguments)
+        }
     }
 }

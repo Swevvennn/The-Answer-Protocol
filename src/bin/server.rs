@@ -202,6 +202,16 @@ impl Cli {
                     tap::game::Player::connect(game, client, username).await
                 }
             }
+            tap::messages::CommandKind::Describe => {
+                let mut id = String::new();
+                if command.payload.extract(&mut [
+                    tap::messages::PayloadExtractor::String(&mut id),
+                ]).is_err() {
+                    tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
+                } else {
+                    game.describe(&id)
+                }
+            }
             tap::messages::CommandKind::Drop => {
                 let mut item = String::new();
                 if command.payload.extract(&mut [

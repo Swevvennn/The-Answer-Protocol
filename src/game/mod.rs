@@ -26,6 +26,7 @@ pub use room::RoomState;
 
 mod state;
 pub use state::GameState;
+pub use state::WorldData;
 
 mod trade;
 pub use trade::Trade;
