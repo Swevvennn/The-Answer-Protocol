@@ -129,7 +129,7 @@ impl Player {
 
     pub async fn take(game: &mut crate::game::GameState, player: &String, item: &String) -> crate::messages::Message {
         if let Some(player) = game.players.get_mut(player) && let Some(room) = game.rooms.get_mut(&player.room) {
-            if let Some(i) = room.items.iter().position(|i| *i == *item) {
+            if let Some(i) = room.items.iter().position(|i| *i == *item || game.items[i].name == *item) {
                 player.items.push(room.items.remove(i));
             } else {
                 return crate::messages::Message::Error(crate::messages::Error::ItemNotFound)
@@ -167,7 +167,7 @@ impl Player {
 
     pub async fn drop(game: &mut crate::game::GameState, player: &String, item: &String) -> crate::messages::Message {
         if let Some(player) = game.players.get_mut(player) && let Some(room) = game.rooms.get_mut(&player.room) {
-            if let Some(i) = player.items.iter().position(|i| *i == *item) {
+            if let Some(i) = player.items.iter().position(|i| *i == *item || game.items[i].name == *item) {
                 room.items.push(player.items.remove(i));
             } else {
                 return crate::messages::Message::Error(crate::messages::Error::ItemNotInInventory)
