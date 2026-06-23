@@ -1,78 +1,42 @@
-use futures::StreamExt;
-
-pub type KeyCode = crossterm::event::KeyCode;
-pub type KeyModifiers = crossterm::event::KeyModifiers;
-
-pub enum InputEvent {
-    Input,
-    Interrupted,
-    Other {
-        code: KeyCode,
-        modifiers: KeyModifiers,
-    },
-    Validate,
-}
-
+#[derive(Default)]
 pub struct Input {
-    pub input: String,
-    events: crossterm::event::EventStream,
+    pub buffer: String,
+    handler: crate::cli::Handler,
 }
 
 impl Input {
     pub fn consume(&mut self) -> String {
-        let input = self.input.clone();
-        self.input.clear();
-        input
+        let s = self.buffer.clone();
+        self.buffer.clear();
+        s
     }
+}
 
-    pub async fn read(&mut self) -> Option<InputEvent> {
-        match self.events.next().await {
-            Some(Ok(event)) => {
-                match event {
-                    crossterm::event::Event::Key(key) if key.kind == crossterm::event::KeyEventKind::Press => {
-                        match (key.code, key.modifiers) {
-                            (KeyCode::Char('c'), KeyModifiers::CONTROL) => Some(InputEvent::Interrupted),
-                            (KeyCode::Char(c), _) => {
-                                self.input.push(c);
-                                Some(InputEvent::Input)
-                            }
-                            (KeyCode::Backspace, _) => {
-                                self.input.pop();
-                                Some(InputEvent::Input)
-                            }
-                            (KeyCode::Enter, _) => Some(InputEvent::Validate),
-                            (_, _) => Some(InputEvent::Other {
-                                code: key.code,
-                                modifiers: key.modifiers,
-                            }),
-                        }
+impl crate::cli::HandleEvent for Input {
+    async fn handle_event(&mut self) -> Option<crate::cli::Event> {
+        match self.handler.handle_event().await {
+            Some(event) => match event {
+                crate::cli::Event::Key { code, modifiers } => match (code, modifiers) {
+                    (crate::cli::KeyCode::Char(c), crate::cli::KeyModifiers::NONE | crate::cli::KeyModifiers::SHIFT) => {
+                        self.buffer.push(c);
+                        None
                     }
-                    _ => None,
+                    (crate::cli::KeyCode::Backspace, crate::cli::KeyModifiers::NONE) => {
+                        self.buffer.pop();
+                        None
+                    }
+                    _ => Some(event),
                 }
+                crate::cli::Event::Validate if self.buffer.is_empty() => None,
+                _ => Some(event),
             }
             _ => None,
         }
     }
 }
 
-impl Default for Input {
-    fn default() -> Self {
-        let _ = crossterm::terminal::enable_raw_mode();
-        Self {
-            input: String::new(),
-            events: crossterm::event::EventStream::new(),
-        }
-    }
-}
-
-impl Drop for Input {
-    fn drop(&mut self) {
-        let _ = crossterm::terminal::disable_raw_mode();
-    }
-}
-
 impl std::fmt::Display for Input {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.input)
+        write!(f, "{}", self.buffer)
     }
 }

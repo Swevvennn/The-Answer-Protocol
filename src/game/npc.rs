@@ -1,6 +1,7 @@
 use rand::seq::IndexedRandom;
 
 #[derive(
+    Clone,
     serde::Deserialize,
     serde::Serialize,
 )]
@@ -19,9 +20,9 @@ pub enum NpcKind {
         #[serde(skip_serializing_if = "Vec::is_empty")]
         quests: Vec<String>,
 
-        #[serde(default)]
-        #[serde(skip_serializing_if = "Vec::is_empty")]
-        trades: Vec<crate::game::Trade>,
+        // #[serde(default)]
+        // #[serde(skip_serializing_if = "Vec::is_empty")]
+        // trades: Vec<crate::game::Trade>,
     },
 }
 
@@ -32,6 +33,7 @@ impl NpcKind {
 }
 
 #[derive(
+    Clone,
     serde::Deserialize,
     serde::Serialize,
 )]
@@ -53,7 +55,7 @@ impl Npc {
             if let NpcKind::Neutral {
                 dialogues,
                 quests,
-                trades: _,
+                // trades: _,
             } = &npc.data {
                 let mut event = None;
                 if let Some(player) = game.players.get_mut(player) {
@@ -117,7 +119,7 @@ impl Npc {
             if let NpcKind::Neutral {
                 dialogues: _,
                 quests,
-                trades: _,
+                // trades: _,
             } = &npc.data {
                 if let Some(player) = game.players.get_mut(player) {
                     let mut ok = false;

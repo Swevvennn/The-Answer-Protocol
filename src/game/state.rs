@@ -1,9 +1,13 @@
 #[derive(
+    Default,
     serde::Deserialize,
     serde::Serialize,
 )]
+#[serde(deny_unknown_fields)]
 #[serde(untagged)]
 pub enum WorldData {
+    #[default]
+    None,
     Group(crate::game::Group),
     Item(crate::game::Item),
     Npc(crate::game::Npc),
@@ -186,7 +190,7 @@ impl GameState {
             if let crate::game::NpcKind::Neutral {
                 dialogues: _,
                 quests,
-                trades: _,
+                // trades: _,
             } = &mut npc.data {
                 for quest in quests {
                     *quest = format!("quest.{quest}");

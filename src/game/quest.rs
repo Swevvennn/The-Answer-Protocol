@@ -1,4 +1,5 @@
 #[derive(
+    Clone,
     serde::Deserialize,
     serde::Serialize,
 )]
@@ -22,6 +23,7 @@ pub enum QuestKind {
 }
 
 #[derive(
+    Clone,
     serde::Deserialize,
     serde::Serialize,
 )]
@@ -55,6 +57,16 @@ pub enum QuestStatus {
     Abandoned,
     Active,
     Completed,
+}
+
+impl std::fmt::Display for QuestStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Abandoned => write!(f, "Abandoned"),
+            Self::Active => write!(f, "Active"),
+            Self::Completed => write!(f, "Completed"),
+        }
+    }
 }
 
 #[derive(

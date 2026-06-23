@@ -1,6 +1,6 @@
 [alias]
 run-server = "run --bin server data/world.json"
 run-client-raw = "run --bin client -- --raw"
-run-client-cli = "run --bin client"
+run-client-tui = "run --bin client"
 run-client-gui = "run --bin client -- --gui"
 lint = "clippy --all-targets --all-features -- -D warnings"

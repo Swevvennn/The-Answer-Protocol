@@ -71,11 +71,11 @@ impl Logger {
         Logger::info(&format!(
             "{} event: {}",
             match event.scope {
-                crate::messages::EventScope::Global => "global".to_string(),
-                crate::messages::EventScope::Group => format!("group \x1b[0;35m{}\x1b[0;0m", details),
-                crate::messages::EventScope::Player => format!("player \x1b[0;35m{}\x1b[0;0m", details),
-                crate::messages::EventScope::Room => format!("room \x1b[0;35m{}\x1b[0;0m", details),
-                crate::messages::EventScope::Stats => "stats".to_string(),
+                crate::messages::EventScope::Global => "Global".to_string(),
+                crate::messages::EventScope::Group => format!("Group \x1b[0;35m{}\x1b[0;0m", details),
+                crate::messages::EventScope::Player => format!("Player \x1b[0;35m{}\x1b[0;0m", details),
+                crate::messages::EventScope::Room => format!("Room \x1b[0;35m{}\x1b[0;0m", details),
+                crate::messages::EventScope::Stats => "Stats".to_string(),
             },
             event,
         )).await;
