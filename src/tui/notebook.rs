@@ -33,7 +33,7 @@ impl Notebook {
             ratatui::layout::Constraint::Fill(1),
         ])
             .areas(area);
-        if self.pages.len() == 0 {
+        if self.pages.is_empty() {
             ratatui::widgets::Block::bordered()
                 .borders(ratatui::widgets::Borders::LEFT | ratatui::widgets::Borders::RIGHT | ratatui::widgets::Borders::TOP)
                 .render(top, buf);
@@ -69,14 +69,14 @@ impl Notebook {
 impl crate::tui::Widget for Notebook {
     fn render(&mut self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
         let area = self.render_layout(area, buf);
-        if self.pages.len() > 0 {
+        if !self.pages.is_empty() {
             self.pages[self.current].render(area, buf);
         }
     }
 
     fn render_with_data(&mut self, knowledge: &crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
         let area = self.render_layout(area, buf);
-        if self.pages.len() > 0 {
+        if !self.pages.is_empty() {
             self.pages[self.current].render_with_data(knowledge, area, buf);
         }
     }

@@ -332,12 +332,8 @@ impl FriendlyCli {
 }
 
 impl crate::tui::ToListItem for crate::game::Npc {
-    fn update_item(knowledge: &crate::tui::Knowledge, s: &String) -> Option<Self> {
-        if let Some(npc) = knowledge.npcs.get(s) {
-            Some(npc.clone())
-        } else {
-            None
-        }
+    fn update_item(knowledge: &crate::tui::Knowledge, s: &str) -> Option<Self> {
+        knowledge.npcs.get(s).cloned()
     }
 
     fn to_item(&self, _: &crate::tui::Knowledge) -> ratatui::widgets::ListItem<'static> {
@@ -346,12 +342,8 @@ impl crate::tui::ToListItem for crate::game::Npc {
 }
 
 impl crate::tui::ToListItem for crate::game::Item {
-    fn update_item(knowledge: &crate::tui::Knowledge, s: &String) -> Option<Self> {
-        if let Some(item) = knowledge.items.get(s) {
-            Some(item.clone())
-        } else {
-            None
-        }
+    fn update_item(knowledge: &crate::tui::Knowledge, s: &str) -> Option<Self> {
+        knowledge.items.get(s).cloned()
     }
 
     fn to_item(&self, _: &crate::tui::Knowledge) -> ratatui::widgets::ListItem<'static> {
@@ -360,12 +352,8 @@ impl crate::tui::ToListItem for crate::game::Item {
 }
 
 impl crate::tui::ToListItem for crate::game::Quest {
-    fn update_item(knowledge: &crate::tui::Knowledge, s: &String) -> Option<Self> {
-        if let Some(quest) = knowledge.quests.get(s) {
-            Some(quest.clone())
-        } else {
-            None
-        }
+    fn update_item(knowledge: &crate::tui::Knowledge, s: &str) -> Option<Self> {
+        knowledge.quests.get(s).cloned()
     }
 
     fn to_item(&self, knowledge: &crate::tui::Knowledge) -> ratatui::widgets::ListItem<'static> {

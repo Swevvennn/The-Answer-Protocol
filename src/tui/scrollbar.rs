@@ -21,19 +21,11 @@ impl Scrollbar {
     }
 
     pub fn remaining(&self) -> usize {
-        if self.content >= self.viewport {
-            0
-        } else {
-            self.viewport - self.content
-        }
+        self.viewport.saturating_sub(self.content)
     }
 
     pub fn overflow(&self) -> usize {
-        if self.content <= self.viewport {
-            0
-        } else {
-            self.content - self.viewport
-        }
+        self.content.saturating_sub(self.viewport)
     }
 
     pub fn to_begin(&mut self) {

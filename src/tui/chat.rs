@@ -104,7 +104,7 @@ impl crate::tui::Widget for Chat {
                 ratatui::text::Span::styled("] ", ratatui::style::Style::default().fg(ratatui::style::Color::White)),
                 ratatui::text::Span::styled(&message.author, ratatui::style::Style::default().fg(ratatui::style::Color::LightMagenta)),
                 ratatui::text::Span::styled(": ", ratatui::style::Style::default().fg(ratatui::style::Color::White)),
-                ratatui::text::Span::styled(format!("{}", if too_long { "" } else { &content }), ratatui::style::Style::default().fg(color)),
+                ratatui::text::Span::styled((if too_long { "" } else { &content }).to_string(), ratatui::style::Style::default().fg(color)),
             ]));
             if too_long {
                 while !content.is_empty() {

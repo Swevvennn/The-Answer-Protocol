@@ -24,7 +24,7 @@ impl<T: PopupBehavior> crate::tui::Widget for T {
             ratatui::layout::Constraint::Fill(1),
         ])
             .areas(area);
-        ratatui::widgets::Clear::default()
+        ratatui::widgets::Clear
             .render(area, buf);
         let block = ratatui::widgets::Block::bordered()
             .title(format!(" {} ", self.title()))

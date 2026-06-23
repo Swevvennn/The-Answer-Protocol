@@ -10,14 +10,14 @@ pub trait ToListItem: Sized {
             .collect()
     }
 
-    fn update_item(knowledge: &crate::tui::Knowledge, s: &String) -> Option<Self>;
+    fn update_item(knowledge: &crate::tui::Knowledge, s: &str) -> Option<Self>;
 
     fn to_item(&self, knowledge: &crate::tui::Knowledge) -> ratatui::widgets::ListItem<'static>;
 }
 
 impl ToListItem for String {
-    fn update_item(_: &crate::tui::Knowledge, s: &String) -> Option<Self> {
-        Some(s.clone())
+    fn update_item(_: &crate::tui::Knowledge, s: &str) -> Option<Self> {
+        Some(s.to_string())
     }
 
     fn to_item(&self, _: &crate::tui::Knowledge) -> ratatui::widgets::ListItem<'static> {
