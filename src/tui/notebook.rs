@@ -74,7 +74,7 @@ impl crate::tui::Widget for Notebook {
         }
     }
 
-    fn render_with_data(&mut self, knowledge: &crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+    fn render_with_data(&mut self, knowledge: &mut crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
         let area = self.render_layout(area, buf);
         if !self.pages.is_empty() {
             self.pages[self.current].render_with_data(knowledge, area, buf);

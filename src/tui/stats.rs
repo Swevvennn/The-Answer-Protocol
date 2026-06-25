@@ -5,7 +5,7 @@ pub struct StatsPage {
 }
 
 impl StatsPage {
-    pub fn init(&mut self, knowledge: &crate::tui::Knowledge) {
+    pub fn update(&mut self, knowledge: &crate::tui::Knowledge) {
         self.inventory.items = crate::game::Item::items_from_iter(&knowledge.player.items);
     }
 }
@@ -29,7 +29,7 @@ impl crate::tui::NotebookPage for StatsPage {
 }
 
 impl crate::tui::Widget for StatsPage {
-    fn render_with_data(&mut self, knowledge: &crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+    fn render_with_data(&mut self, knowledge: &mut crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
         self.inventory.render_with_data(knowledge, area, buf);
     }
 }

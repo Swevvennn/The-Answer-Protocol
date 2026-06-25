@@ -22,8 +22,17 @@ pub enum QuestKind {
     }
 }
 
+impl Default for QuestKind {
+    fn default() -> Self {
+        QuestKind::Goto {
+            room: String::new(),
+        }
+    }
+}
+
 #[derive(
     Clone,
+    Default,
     serde::Deserialize,
     serde::Serialize,
 )]

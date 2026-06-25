@@ -48,6 +48,7 @@
         {
             "id": "gagagougouk",
             "name": "Gagagougouk",
+            "description": "Gagou gigouga gaga gik gouk",
             "data": {
                 "quests": ["welcome", "bring_coins"]
             }
@@ -55,6 +56,7 @@
         {
             "id": "welcomer",
             "name": "Welcomer",
+            "description": "The first npc you will meet",
             "data": {
                 "dialogues": ["Welcome stranger!"]
             }
@@ -99,38 +101,6 @@
         {
             "room": "start",
             "npc": "welcomer"
-        },
-        {
-            "room": "start",
-            "npc": "gagagougouk"
-        },
-        {
-            "room": "start",
-            "npc": "gagagougouk"
-        },
-        {
-            "room": "start",
-            "npc": "gagagougouk"
-        },
-        {
-            "room": "start",
-            "npc": "gagagougouk"
-        },
-        {
-            "room": "start",
-            "npc": "gagagougouk"
-        },
-        {
-            "room": "start",
-            "npc": "gagagougouk"
-        },
-        {
-            "room": "start",
-            "npc": "gagagougouk"
-        },
-        {
-            "room": "start",
-            "npc": "gagagougouk"
         },
         {
             "room": "start",

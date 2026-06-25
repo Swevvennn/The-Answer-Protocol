@@ -170,7 +170,7 @@ impl crate::tui::NotebookPage for ChatPage {
 }
 
 impl crate::tui::Widget for ChatPage {
-    fn render_with_data(&mut self, _: &crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+    fn render_with_data(&mut self, _: &mut crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
         self.chat.render(area, buf);
     }
 }

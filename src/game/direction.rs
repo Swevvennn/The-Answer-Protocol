@@ -5,6 +5,7 @@
     PartialEq,
     serde::Deserialize,
     serde::Serialize,
+    strum_macros::EnumIter,
 )]
 #[serde(rename_all = "lowercase")]
 pub enum Direction {

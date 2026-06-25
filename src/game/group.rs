@@ -39,6 +39,9 @@ impl Group {
     }
 
     pub async fn invite(game: &mut crate::game::GameState, player: &String, invited: &String) -> crate::messages::Message {
+        if player == invited {
+            return crate::messages::Message::Error(crate::messages::Error::PlayerNotFound);
+        }
         if !game.players.contains_key(invited) {
             return crate::messages::Message::Error(crate::messages::Error::PlayerNotFound);
         }

@@ -70,6 +70,15 @@ pub struct Command {
     pub payload: crate::messages::Payload,
 }
 
+impl Command {
+    pub fn new(kind: CommandKind) -> Self {
+        Self {
+            kind,
+            payload: crate::messages::Payload::default(),
+        }
+    }
+}
+
 impl std::str::FromStr for Command {
     type Err = std::io::Error;
 

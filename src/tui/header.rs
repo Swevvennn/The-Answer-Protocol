@@ -3,7 +3,7 @@ use ratatui::widgets::Widget;
 pub struct Header;
 
 impl crate::tui::Widget for Header {
-    fn render_with_data(&mut self, knowledge: &crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+    fn render_with_data(&mut self, knowledge: &mut crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
         let block = ratatui::widgets::Block::bordered()
             .padding(ratatui::widgets::Padding::horizontal(1));
         let [left, right] = ratatui::layout::Layout::horizontal([

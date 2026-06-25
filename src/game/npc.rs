@@ -41,6 +41,7 @@ impl NpcKind {
 pub struct Npc {
     pub id: String,
     pub name: String,
+    pub description: String,
     pub data: NpcKind,
 }
 

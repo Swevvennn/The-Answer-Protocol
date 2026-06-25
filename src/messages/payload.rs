@@ -205,9 +205,7 @@ impl Payload {
                         value: dest_value
                     },
                 ) => {
-                    if dest_key.is_empty() {
-                        **dest_key = src_key.clone();
-                    } else if src_key != *dest_key {
+                    if !dest_key.is_empty() && src_key != *dest_key {
                         return Err(std::io::Error::other(format!(
                             "invalid argument key {}: '{}' expected, got '{}'",
                             i + 1,
@@ -215,6 +213,15 @@ impl Payload {
                             src_key,
                         )));
                     }
+                    if !dest_value.is_empty() && src_value != *dest_value {
+                        return Err(std::io::Error::other(format!(
+                            "invalid argument value {}: '{}' expected, got '{}'",
+                            i + 1,
+                            dest_value,
+                            src_value,
+                        )));
+                    }
+                    **dest_key = src_key.clone();
                     **dest_value = src_value.clone();
                 }
                 (

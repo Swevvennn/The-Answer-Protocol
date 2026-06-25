@@ -1,10 +1,22 @@
-#[derive(Default)]
+#[derive(
+    Default,
+    serde::Deserialize,
+    serde::Serialize,
+)]
 pub struct Player {
     pub username: String,
     pub group: String,
+
+    #[serde(skip)]
     pub room: String,
+
+    #[serde(skip)]
     pub items: Vec<String>,
+
+    #[serde(skip)]
     pub quests: std::collections::HashMap<String, crate::game::QuestProgress>,
+
+    #[serde(skip)]
     pub writer: Option<std::sync::Arc<crate::network::Writer>>,
 }
 

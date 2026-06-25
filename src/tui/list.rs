@@ -131,12 +131,16 @@ impl<T: ToListItem> crate::tui::Focusable for List<T> {
 }
 
 impl<T: ToListItem> crate::tui::Widget for List<T> {
-    fn render_with_data(&mut self, knowledge: &crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+    fn render_with_data(&mut self, knowledge: &mut crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
         ratatui::widgets::List::new(self.items
             .iter_mut()
             .map(|i| {
-                if let ListItem::Unknown(s) = i && let Some(v) = T::update_item(knowledge, s) {
-                    *i = ListItem::Known(v);
+                if let ListItem::Unknown(s) = i {
+                    if let Some(v) = T::update_item(knowledge, s) {
+                        *i = ListItem::Known(v);
+                    } else {
+                        knowledge.describes.insert(s.clone());
+                    }
                 }
                 match i {
                     ListItem::Known(v) => v.to_item(knowledge),

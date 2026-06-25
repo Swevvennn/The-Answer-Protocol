@@ -30,8 +30,10 @@ async fn start() -> Option<tap::messages::Error> {
         Some(v) => v,
         None => "7373".to_string(),
     };
-    let mut client = tap::network::Client::default();
-    client.addr = format!("{ip}:{port}");
+    let mut client = tap::network::Client {
+        addr: format!("{ip}:{port}"),
+        ..Default::default()
+    };
     if client.connect().await.is_err() {
         return Some(tap::messages::Error::ConnectionFailed);
     }
