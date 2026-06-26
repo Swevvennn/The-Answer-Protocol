@@ -96,6 +96,116 @@ impl crate::cli::HandleEvent for PopupAction {
     }
 }
 
+pub struct PopupAsk {
+    pub id: &'static str,
+    pub title: String,
+    pub text: String,
+    pub yes: crate::tui::Button,
+    pub no: crate::tui::Button,
+}
+
+impl PopupAsk {
+    pub fn new(id: &'static str, title: &str, text: &str) -> Self {
+        Self {
+            id,
+            title: title.to_string(),
+            text: text.to_string(),
+            yes: crate::tui::Button::new("Yes"),
+            no: crate::tui::Button::new("No"),
+        }
+    }
+
+    pub fn selected(&self) -> Option<bool> {
+        if self.yes.focus {
+            Some(true)
+        } else if self.no.focus {
+            Some(false)
+        } else {
+            None
+        }
+    }
+}
+
+impl PopupWidget for PopupAsk {
+    fn title(&self) -> &str {
+        &self.title
+    }
+
+    fn content_width(&self) -> u16 {
+        use crate::tui::Widget;
+        std::cmp::max(
+            self.text.len() as u16,
+            self.yes.width() + 1 + self.no.width(),
+        )
+    }
+
+    fn content_height(&self) -> u16 {
+        3
+    }
+
+    fn render_content(&mut self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+        use crate::tui::Widget;
+        let [top, _, bottom] = ratatui::layout::Layout::vertical([
+            ratatui::layout::Constraint::Length(1),
+            ratatui::layout::Constraint::Length(1),
+            ratatui::layout::Constraint::Length(1),
+        ])
+            .areas(area);
+        let [left, _, right] = ratatui::layout::Layout::horizontal([
+            ratatui::layout::Constraint::Length(self.yes.width()),
+            ratatui::layout::Constraint::Fill(1),
+            ratatui::layout::Constraint::Length(self.no.width()),
+        ])
+            .areas(bottom);
+        ratatui::widgets::Paragraph::new(self.text.as_str())
+            .centered()
+            .render(top, buf);
+        self.yes.render(left, buf);
+        self.no.render(right, buf);
+    }
+}
+
+impl crate::cli::HandleEvent for PopupAsk {
+    async fn handle_event(&mut self) -> Option<crate::cli::Event> {
+        let event = if self.yes.focus {
+            self.yes.handle_event().await
+        } else {
+            self.no.handle_event().await
+        };
+        match event {
+            Some(event) => match event {
+                crate::cli::Event::Key {
+                    code: crate::cli::KeyCode::Left,
+                    modifiers: crate::cli::KeyModifiers::NONE,
+                } => {
+                    if !self.yes.focus && !self.no.focus {
+                        self.no.focus = true;
+                    } else {
+                        self.yes.focus = !self.yes.focus;
+                        self.no.focus = !self.no.focus;
+                    }
+                    None
+                }
+                crate::cli::Event::Key {
+                    code: crate::cli::KeyCode::Right,
+                    modifiers: crate::cli::KeyModifiers::NONE,
+                } => {
+                    if !self.yes.focus && !self.no.focus {
+                        self.yes.focus = true;
+                    } else {
+                        self.yes.focus = !self.yes.focus;
+                        self.no.focus = !self.no.focus;
+                    }
+                    None
+                }
+                crate::cli::Event::Validate if !self.yes.focus && !self.no.focus => None,
+                _ => Some(event),
+            }
+            None => None,
+        }
+    }
+}
+
 pub trait PopupDescribeInfos: crate::tui::Widget {
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
 
@@ -357,6 +467,7 @@ impl crate::cli::HandleEvent for PopupInput {
 
 pub enum Popup {
     Action(PopupAction),
+    Ask(PopupAsk),
     Describe(PopupDescribe),
     Error(PopupError),
     Info(PopupInfo),
@@ -367,6 +478,11 @@ impl Popup {
     pub fn action(id: &'static str, title: &str, actions: Vec<String>) -> Self {
         Self::Action(
             PopupAction::new(id, title, actions),
+        )
+    }
+    pub fn ask(id: &'static str, title: &str, text: &str) -> Self {
+        Self::Ask(
+            PopupAsk::new(id, title, text),
         )
     }
 
@@ -399,6 +515,7 @@ impl crate::cli::HandleEvent for Popup {
     async fn handle_event(&mut self) -> Option<crate::cli::Event> {
         match self {
             Popup::Action(popup) => popup.handle_event().await,
+            Popup::Ask(popup) => popup.handle_event().await,
             Popup::Describe(popup) => popup.handle_event().await,
             Popup::Error(popup) => popup.handle_event().await,
             Popup::Info(popup) => popup.handle_event().await,
@@ -411,6 +528,7 @@ impl crate::tui::Widget for Popup {
     fn render_with_data(&mut self, knowledge: &mut crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
         match self {
             Popup::Action(popup) => popup.render(area, buf),
+            Popup::Ask(popup) => popup.render(area, buf),
             Popup::Describe(popup) => popup.render_with_data(knowledge, area, buf),
             Popup::Error(popup) => popup.render(area, buf),
             Popup::Info(popup) => popup.render(area, buf),

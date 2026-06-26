@@ -1,5 +1,6 @@
 use ratatui::widgets::Widget;
 
+#[derive(Default)]
 pub struct GroupPage {
     scrollbar: crate::tui::Scrollbar,
 }

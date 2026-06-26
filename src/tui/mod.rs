@@ -62,5 +62,8 @@ pub use stats::StatsPage;
 mod terminal;
 pub use terminal::Terminal;
 
+mod welcome;
+pub use welcome::WelcomePage;
+
 mod widget;
 pub use widget::Widget;

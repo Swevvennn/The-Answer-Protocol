@@ -3,10 +3,19 @@ use std::str::FromStr;
 use crate::cli::HandleEvent;
 use crate::tui::Widget;
 
+enum Page {
+    Welcome = 0,
+    Room = 1,
+    Stats = 2,
+    Quests = 3,
+    Group = 4,
+    Chat = 5,
+}
+
 #[derive(Default)]
 enum Focus {
     #[default]
-    Chat,
+    WelcomeExit,
 
     RoomReload,
     RoomMove,
@@ -15,6 +24,7 @@ enum Focus {
     RoomItems,
     StatsInventory,
     QuestsQuests,
+    Chat,
 }
 
 #[derive(Default)]
@@ -37,12 +47,14 @@ impl FriendlyCli {
             Err(_) => return Some(crate::messages::Error::UnknownError),
         };
         self.notebook = crate::tui::Notebook::new(vec![
+            Box::new(crate::tui::WelcomePage::default()),
             Box::new(crate::tui::RoomPage::default()),
             Box::new(crate::tui::StatsPage::default()),
             Box::new(crate::tui::QuestsPage::default()),
+            Box::new(crate::tui::GroupPage::default()),
             Box::new(crate::tui::ChatPage::default()),
         ]);
-        self.change_focus(Focus::Chat);
+        self.change_focus(Focus::WelcomeExit);
         crate::cli::Handler::init();
         let r = self.run(&mut terminal).await;
         crate::cli::Handler::cleanup();
@@ -52,10 +64,10 @@ impl FriendlyCli {
 
     async fn run(&mut self, terminal: &mut crate::tui::Terminal) -> Option<crate::messages::Error> {
         loop {
-            terminal.update(&mut *self, Self::render);
             if !self.client.is_open() {
                 return None;
             }
+            terminal.update(&mut *self, Self::render);
             match &self.popup {
                 Some(crate::tui::Popup::Input(popup)) if popup.id == "auth" && matches!(self.client.state, crate::network::ClientState::Authenticated) => self.popup = None,
                 None if !matches!(self.client.state, crate::network::ClientState::Authenticated) => self.popup = Some(crate::tui::Popup::input("auth", "CHOOSE YOUR USERNAME")),
@@ -71,14 +83,15 @@ impl FriendlyCli {
                         popup.handle_event().await
                     } else {
                         match &self.focused {
-                            Focus::RoomReload => self.notebook.page::<crate::tui::RoomPage>(0).reload.handle_event().await,
-                            Focus::RoomMove => self.notebook.page::<crate::tui::RoomPage>(0).move_to.handle_event().await,
-                            Focus::RoomPlayers => self.notebook.page::<crate::tui::RoomPage>(0).players.handle_event().await,
-                            Focus::RoomNPCs => self.notebook.page::<crate::tui::RoomPage>(0).npcs.handle_event().await,
-                            Focus::RoomItems => self.notebook.page::<crate::tui::RoomPage>(0).items.handle_event().await,
-                            Focus::StatsInventory => self.notebook.page::<crate::tui::StatsPage>(1).inventory.handle_event().await,
-                            Focus::QuestsQuests => self.notebook.page::<crate::tui::QuestsPage>(2).quests.handle_event().await,
-                            Focus::Chat => self.notebook.page::<crate::tui::ChatPage>(3).chat.handle_event().await,
+                            Focus::WelcomeExit => self.notebook.page::<crate::tui::WelcomePage>(Page::Welcome as usize).exit.handle_event().await,
+                            Focus::RoomReload => self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).reload.handle_event().await,
+                            Focus::RoomMove => self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).move_to.handle_event().await,
+                            Focus::RoomPlayers => self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).players.handle_event().await,
+                            Focus::RoomNPCs => self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).npcs.handle_event().await,
+                            Focus::RoomItems => self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).items.handle_event().await,
+                            Focus::StatsInventory => self.notebook.page::<crate::tui::StatsPage>(Page::Stats as usize).inventory.handle_event().await,
+                            Focus::QuestsQuests => self.notebook.page::<crate::tui::QuestsPage>(Page::Quests as usize).quests.handle_event().await,
+                            Focus::Chat => self.notebook.page::<crate::tui::ChatPage>(Page::Chat as usize).chat.handle_event().await,
                         }
                     }
                 } => {
@@ -122,7 +135,7 @@ impl FriendlyCli {
                     self.popup = Some(crate::tui::Popup::error(e));
                 }
             }
-            if self.commands.is_empty() && let Some(id) = self.knowledge.need() {
+            if self.client.is_open() && self.commands.is_empty() && let Some(id) = self.knowledge.need() {
                 self.send_command(crate::messages::Command {
                     kind: crate::messages::CommandKind::Describe,
                     payload: crate::messages::Payload::new(&[
@@ -135,14 +148,15 @@ impl FriendlyCli {
 
     fn focus_info(&mut self) -> (Focus, Focus, &mut bool) {
         match &self.focused {
-            Focus::RoomReload => (Focus::Chat, Focus::RoomMove, &mut self.notebook.page::<crate::tui::RoomPage>(0).reload.focus),
-            Focus::RoomMove => (Focus::RoomReload, Focus::RoomPlayers, &mut self.notebook.page::<crate::tui::RoomPage>(0).move_to.focus),
-            Focus::RoomPlayers => (Focus::RoomMove, Focus::RoomNPCs, &mut self.notebook.page::<crate::tui::RoomPage>(0).players.focus),
-            Focus::RoomNPCs => (Focus::RoomPlayers, Focus::RoomItems, &mut self.notebook.page::<crate::tui::RoomPage>(0).npcs.focus),
-            Focus::RoomItems => (Focus::RoomNPCs, Focus::StatsInventory, &mut self.notebook.page::<crate::tui::RoomPage>(0).items.focus),
-            Focus::StatsInventory => (Focus::RoomItems, Focus::QuestsQuests, &mut self.notebook.page::<crate::tui::StatsPage>(1).inventory.focus),
-            Focus::QuestsQuests => (Focus::StatsInventory, Focus::Chat, &mut self.notebook.page::<crate::tui::QuestsPage>(2).quests.focus),
-            Focus::Chat => (Focus::QuestsQuests, Focus::RoomReload, &mut self.notebook.page::<crate::tui::ChatPage>(3).chat.focus),
+            Focus::WelcomeExit => (Focus::Chat, Focus::RoomReload, &mut self.notebook.page::<crate::tui::WelcomePage>(Page::Welcome as usize).exit.focus),
+            Focus::RoomReload => (Focus::WelcomeExit, Focus::RoomMove, &mut self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).reload.focus),
+            Focus::RoomMove => (Focus::RoomReload, Focus::RoomPlayers, &mut self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).move_to.focus),
+            Focus::RoomPlayers => (Focus::RoomMove, Focus::RoomNPCs, &mut self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).players.focus),
+            Focus::RoomNPCs => (Focus::RoomPlayers, Focus::RoomItems, &mut self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).npcs.focus),
+            Focus::RoomItems => (Focus::RoomNPCs, Focus::StatsInventory, &mut self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).items.focus),
+            Focus::StatsInventory => (Focus::RoomItems, Focus::QuestsQuests, &mut self.notebook.page::<crate::tui::StatsPage>(Page::Stats as usize).inventory.focus),
+            Focus::QuestsQuests => (Focus::StatsInventory, Focus::Chat, &mut self.notebook.page::<crate::tui::QuestsPage>(Page::Quests as usize).quests.focus),
+            Focus::Chat => (Focus::QuestsQuests, Focus::WelcomeExit, &mut self.notebook.page::<crate::tui::ChatPage>(Page::Chat as usize).chat.focus),
         }
     }
 
@@ -151,11 +165,12 @@ impl FriendlyCli {
         self.focused = focus;
         *self.focus_info().2 = true;
         self.notebook.current = match &self.focused {
-            Focus::RoomReload | Focus::RoomMove | Focus::RoomPlayers | Focus::RoomNPCs | Focus::RoomItems  => 0,
-            Focus::StatsInventory => 1,
-            Focus::QuestsQuests => 2,
-            Focus::Chat => 3,
-        };
+            Focus::WelcomeExit => Page::Welcome,
+            Focus::RoomReload | Focus::RoomMove | Focus::RoomPlayers | Focus::RoomNPCs | Focus::RoomItems  => Page::Room,
+            Focus::StatsInventory => Page::Stats,
+            Focus::QuestsQuests => Page::Quests,
+            Focus::Chat => Page::Chat,
+        } as usize;
     }
 
     async fn send_command(&mut self, command: crate::messages::Command) -> Option<crate::messages::Error> {
@@ -174,6 +189,9 @@ impl FriendlyCli {
             if matches!(event, crate::cli::Event::Validate) {
                 let mut popup = self.popup.take().unwrap();
                 match &mut popup {
+                    crate::tui::Popup::Ask(popup) if popup.id == "exit" && let Some(selected) = popup.selected() && selected => {
+                        self.client.close();
+                    }
                     crate::tui::Popup::Action(popup) if let Some(selected) = popup.buttons.selected() => match popup.id {
                         "move" if let Ok(direction) = crate::game::Direction::from_str(selected) => return Some(crate::messages::Command {
                             kind: crate::messages::CommandKind::Move,
@@ -255,6 +273,13 @@ impl FriendlyCli {
                 }
                 crate::cli::Event::Validate => {
                     match &self.focused {
+                        Focus::WelcomeExit => {
+                            self.popup = Some(crate::tui::Popup::ask(
+                                "exit",
+                                "Exit",
+                                "Do you really want to exit ?",
+                            ));
+                        }
                         Focus::RoomReload => {
                             return Some(crate::messages::Command::new(crate::messages::CommandKind::Look));
                         }
@@ -272,7 +297,7 @@ impl FriendlyCli {
                             ));
                         }
                         Focus::RoomPlayers => {
-                            if let Some(player) = self.notebook.page::<crate::tui::RoomPage>(0).players.selected() {
+                            if let Some(player) = self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).players.selected() {
                                 self.popup = Some(crate::tui::Popup::action(
                                     "player",
                                     player,
@@ -284,7 +309,7 @@ impl FriendlyCli {
                             }
                         }
                         Focus::RoomNPCs => {
-                            if let Some(npc) = self.notebook.page::<crate::tui::RoomPage>(0).npcs.selected() {
+                            if let Some(npc) = self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).npcs.selected() {
                                 self.popup = Some(crate::tui::Popup::describe(
                                     "npc",
                                     Box::new(npc.clone()),
@@ -296,7 +321,7 @@ impl FriendlyCli {
                             }
                         }
                         Focus::RoomItems => {
-                            if let Some(item) = self.notebook.page::<crate::tui::RoomPage>(0).items.selected() {
+                            if let Some(item) = self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).items.selected() {
                                 self.popup = Some(crate::tui::Popup::describe(
                                     "item",
                                     Box::new(item.clone()),
@@ -305,7 +330,7 @@ impl FriendlyCli {
                             }
                         }
                         Focus::StatsInventory => {
-                            if let Some(item) = self.notebook.page::<crate::tui::StatsPage>(1).inventory.selected() {
+                            if let Some(item) = self.notebook.page::<crate::tui::StatsPage>(Page::Stats as usize).inventory.selected() {
                                 self.popup = Some(crate::tui::Popup::describe(
                                     "item",
                                     Box::new(item.clone()),
@@ -314,7 +339,7 @@ impl FriendlyCli {
                             }
                         }
                         Focus::QuestsQuests => {
-                            if let Some(quest) = self.notebook.page::<crate::tui::QuestsPage>(2).quests.selected() {
+                            if let Some(quest) = self.notebook.page::<crate::tui::QuestsPage>(Page::Quests as usize).quests.selected() {
                                 self.popup = Some(crate::tui::Popup::describe(
                                     "quest",
                                     Box::new(quest.clone()),
@@ -326,8 +351,8 @@ impl FriendlyCli {
                             return Some(crate::messages::Command {
                                 kind: crate::messages::CommandKind::Chat,
                                 payload: crate::messages::Payload::new(&[
-                                    crate::messages::PayloadKind::String(self.notebook.page::<crate::tui::ChatPage>(3).chat.scope.to_string()),
-                                    crate::messages::PayloadKind::String(self.notebook.page::<crate::tui::ChatPage>(3).chat.input.input.consume()),
+                                    crate::messages::PayloadKind::String(self.notebook.page::<crate::tui::ChatPage>(Page::Chat as usize).chat.scope.to_string()),
+                                    crate::messages::PayloadKind::String(self.notebook.page::<crate::tui::ChatPage>(Page::Chat as usize).chat.input.input.consume()),
                                 ]),
                             });
                         }
@@ -353,7 +378,7 @@ impl FriendlyCli {
                         crate::messages::PayloadExtractor::String(&mut quest),
                     ]).is_ok() && let Some(quest) = self.knowledge.player.quests.get_mut(&quest) {
                         quest.status = crate::game::QuestStatus::Abandoned;
-                        self.notebook.page::<crate::tui::QuestsPage>(2).update(&self.knowledge);
+                        self.notebook.page::<crate::tui::QuestsPage>(Page::Quests as usize).update(&self.knowledge);
                     } else {
                         return Some(crate::messages::Error::UnexpectedServerResponse);
                     }
@@ -411,7 +436,7 @@ impl FriendlyCli {
                     ]).is_err() {
                         return Some(crate::messages::Error::UnexpectedServerResponse);
                     }
-                    self.notebook.page::<crate::tui::StatsPage>(1).update(&self.knowledge);
+                    self.notebook.page::<crate::tui::StatsPage>(Page::Stats as usize).update(&self.knowledge);
                 }
                 crate::messages::CommandKind::Look => {
                     let mut room = crate::game::RoomState::default();
@@ -421,7 +446,7 @@ impl FriendlyCli {
                         return Some(crate::messages::Error::UnexpectedServerResponse);
                     }
                     self.knowledge.change_room(room);
-                    self.notebook.page::<crate::tui::RoomPage>(0).update(&self.knowledge);
+                    self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).update(&self.knowledge);
                 }
                 crate::messages::CommandKind::Move => {
                     let mut room = String::new();
@@ -455,7 +480,7 @@ impl FriendlyCli {
                     for quest in quests.into_iter() {
                         self.knowledge.player.quests.insert(quest.quest.clone(), quest);
                     }
-                    self.notebook.page::<crate::tui::QuestsPage>(2).update(&self.knowledge);
+                    self.notebook.page::<crate::tui::QuestsPage>(Page::Quests as usize).update(&self.knowledge);
                 }
                 crate::messages::CommandKind::Quit => if response.payload.extract(&mut [
                     crate::messages::PayloadExtractor::String(&mut "bye".to_string()),
@@ -540,7 +565,7 @@ impl FriendlyCli {
                 ]).is_err() {
                     return Some(crate::messages::Error::UnexpectedServerResponse);
                 }
-                self.notebook.page::<crate::tui::ChatPage>(3).chat.push(message);
+                self.notebook.page::<crate::tui::ChatPage>(Page::Chat as usize).chat.push(message);
             }
             crate::messages::EventKind::Invite => {}
             crate::messages::EventKind::Join => {}
@@ -567,7 +592,7 @@ impl FriendlyCli {
                 ]).is_err() || !self.knowledge.room.players.insert(player) {
                     return Some(crate::messages::Error::UnexpectedServerResponse);
                 }
-                self.notebook.page::<crate::tui::RoomPage>(0).update(&self.knowledge);
+                self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).update(&self.knowledge);
             }
             crate::messages::EventKind::PresenceLeave => {
                 let mut player = String::new();
@@ -576,7 +601,7 @@ impl FriendlyCli {
                 ]).is_err() || !self.knowledge.room.players.remove(&player) {
                     return Some(crate::messages::Error::UnexpectedServerResponse);
                 }
-                self.notebook.page::<crate::tui::RoomPage>(0).update(&self.knowledge);
+                self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).update(&self.knowledge);
             }
             crate::messages::EventKind::QuestComplete => {
                 let mut quest = String::new();
@@ -584,7 +609,7 @@ impl FriendlyCli {
                     crate::messages::PayloadExtractor::String(&mut quest),
                 ]).is_ok() && let Some(quest) = self.knowledge.player.quests.get_mut(&quest) {
                     quest.status = crate::game::QuestStatus::Completed;
-                    self.notebook.page::<crate::tui::QuestsPage>(2).update(&self.knowledge);
+                    self.notebook.page::<crate::tui::QuestsPage>(Page::Quests as usize).update(&self.knowledge);
                     self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Inventory)).await;
                 } else {
                     return Some(crate::messages::Error::UnexpectedServerResponse);

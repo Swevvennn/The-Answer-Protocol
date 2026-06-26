@@ -147,7 +147,7 @@ impl crate::tui::Widget for Map {
                         .render(
                             ratatui::layout::Rect::new(
                                 begin.0 + cell.0 * x - space.0 * 2,
-                                begin.1 + cell.1 * y + cell.1 / 2,
+                                begin.1 + cell.1 * y + (cell.1 - 1) / 2,
                                 space.0 * 2,
                                 1,
                             ),
@@ -171,7 +171,7 @@ impl crate::tui::Widget for Map {
                         .render(
                             ratatui::layout::Rect::new(
                                 begin.0 + cell.0 * (x + 1) - space.0,
-                                begin.1 + cell.1 * y + cell.1 / 2,
+                                begin.1 + cell.1 * y + (cell.1 - 1) / 2,
                                 space.0 * 2,
                                 1,
                             ),
