@@ -16,11 +16,11 @@ pub trait ToListItem: Sized {
 }
 
 impl ToListItem for String {
-    fn update_item(_: &crate::tui::Knowledge, s: &str) -> Option<Self> {
+    fn update_item(_knowledge: &crate::tui::Knowledge, s: &str) -> Option<Self> {
         Some(s.to_string())
     }
 
-    fn to_item(&self, _: &crate::tui::Knowledge) -> ratatui::widgets::ListItem<'static> {
+    fn to_item(&self, _knowledge: &crate::tui::Knowledge) -> ratatui::widgets::ListItem<'static> {
         ratatui::widgets::ListItem::new(self.clone())
     }
 }

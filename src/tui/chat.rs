@@ -1,6 +1,17 @@
 use ratatui::widgets::Widget;
 
+use crate::tui::Color;
 use crate::tui::Focusable;
+
+impl crate::tui::Color for crate::messages::EventScope {
+    fn color(&self) -> ratatui::style::Color {
+        match self {
+            crate::messages::EventScope::Group => ratatui::style::Color::LightYellow,
+            crate::messages::EventScope::Room => ratatui::style::Color::LightCyan,
+            _ => ratatui::style::Color::White,
+        }
+    }
+}
 
 pub struct ChatMessage {
     pub scope: crate::messages::EventScope,
@@ -77,14 +88,6 @@ impl crate::tui::Widget for Chat {
     }
 
     fn render(&mut self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
-        fn get_color(scope: &crate::messages::EventScope) -> ratatui::style::Color {
-            match scope {
-                crate::messages::EventScope::Group => ratatui::style::Color::LightYellow,
-                crate::messages::EventScope::Room => ratatui::style::Color::LightCyan,
-                _ => ratatui::style::Color::White,
-            }
-        }
-
         let block = ratatui::widgets::Block::bordered()
             .title(self.span(" CHAT ".to_string()));
         let [top, bottom] = ratatui::layout::Layout::vertical([
@@ -94,22 +97,21 @@ impl crate::tui::Widget for Chat {
             .areas(block.inner(area));
         let mut lines = Vec::new();
         for message in &self.messages {
-            let color = get_color(&message.scope);
             let scope = message.scope.to_string();
             let mut content = message.content.clone();
             let too_long = (scope.len() + message.author.len() + 5) + content.len() > (top.width - 2) as usize;
             lines.push(ratatui::text::Line::from(vec![
                 ratatui::text::Span::styled("[", ratatui::style::Style::default().fg(ratatui::style::Color::White)),
-                ratatui::text::Span::styled(scope, ratatui::style::Style::default().fg(color)),
+                ratatui::text::Span::styled(scope, ratatui::style::Style::default().fg(message.scope.color())),
                 ratatui::text::Span::styled("] ", ratatui::style::Style::default().fg(ratatui::style::Color::White)),
                 ratatui::text::Span::styled(&message.author, ratatui::style::Style::default().fg(ratatui::style::Color::LightMagenta)),
                 ratatui::text::Span::styled(": ", ratatui::style::Style::default().fg(ratatui::style::Color::White)),
-                ratatui::text::Span::styled((if too_long { "" } else { &content }).to_string(), ratatui::style::Style::default().fg(color)),
+                ratatui::text::Span::styled((if too_long { "" } else { &content }).to_string(), ratatui::style::Style::default().fg(message.scope.color())),
             ]));
             if too_long {
                 while !content.is_empty() {
                     lines.push(ratatui::text::Line::from(vec![
-                        ratatui::text::Span::styled(content.drain(..std::cmp::min(content.len(), (top.width - 2) as usize)).collect::<String>(), ratatui::style::Style::default().fg(color)),
+                        ratatui::text::Span::styled(content.drain(..std::cmp::min(content.len(), (top.width - 2) as usize)).collect::<String>(), ratatui::style::Style::default().fg(message.scope.color())),
                     ]));
                 }
             }
@@ -143,7 +145,7 @@ impl crate::tui::Widget for Chat {
         ])
             .areas(bottom);
         ratatui::widgets::Paragraph::new(ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(prefix, ratatui::style::Style::default().fg(get_color(&self.scope))),
+            ratatui::text::Span::styled(prefix, ratatui::style::Style::default().fg(self.scope.color())),
         ]))
             .block(ratatui::widgets::Block::default()
                 .padding(ratatui::widgets::Padding::uniform(1)))
@@ -170,7 +172,7 @@ impl crate::tui::NotebookPage for ChatPage {
 }
 
 impl crate::tui::Widget for ChatPage {
-    fn render_with_data(&mut self, _: &mut crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+    fn render_with_data(&mut self, _knowledge: &mut crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
         self.chat.render(area, buf);
     }
 }

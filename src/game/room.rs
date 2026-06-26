@@ -1,4 +1,5 @@
 #[derive(
+    Clone,
     Default,
     serde::Deserialize,
     serde::Serialize,

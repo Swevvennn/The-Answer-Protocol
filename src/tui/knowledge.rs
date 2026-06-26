@@ -7,9 +7,9 @@ pub struct Knowledge {
     pub items: std::collections::HashMap<String, crate::game::Item>,
     pub npcs: std::collections::HashMap<String, crate::game::Npc>,
     pub quests: std::collections::HashMap<String, crate::game::Quest>,
-    pub pos: (i32, i32),
+    pub rooms: std::collections::HashMap<String, crate::game::Room>,
     pub positions: std::collections::HashMap<String, (i32, i32)>,
-    pub rooms: std::collections::HashMap<(i32, i32), (String, String)>,
+    pub rpositions: std::collections::HashMap<(i32, i32), String>,
     pub connections: std::collections::HashSet<((i32, i32), (i32, i32))>,
     pub room: crate::game::RoomState,
     pub group: crate::game::Group,
@@ -31,27 +31,30 @@ impl Knowledge {
                     break;
                 }
             }
+            self.rooms.insert(room.room.id.clone(), room.room.clone());
             self.positions.insert(room.room.id.clone(), pos);
-            self.rooms.insert(pos, (room.room.id.clone(), room.room.name.clone()));
-            for direction in room.room.exits.keys() {
-                match direction {
-                    crate::game::Direction::East => self.connections.insert((
-                        pos,
+            self.rpositions.insert(pos, room.room.id.clone());
+            for (direction, id) in &room.room.exits {
+                let (other, connection) = match direction {
+                    crate::game::Direction::East => (
                         (pos.0 + 1, pos.1),
-                    )),
-                    crate::game::Direction::North => self.connections.insert((
+                        (pos, (pos.0 + 1, pos.1)),
+                    ),
+                    crate::game::Direction::North => (
                         (pos.0, pos.1 - 1),
-                        pos,
-                    )),
-                    crate::game::Direction::South => self.connections.insert((
-                        pos,
+                        ((pos.0, pos.1 - 1), pos),
+                    ),
+                    crate::game::Direction::South => (
                         (pos.0, pos.1 + 1),
-                    )),
-                    crate::game::Direction::West => self.connections.insert((
+                        (pos, (pos.0, pos.1 + 1)),
+                    ),
+                    crate::game::Direction::West => (
                         (pos.0 - 1, pos.1),
-                        pos,
-                    )),
+                        ((pos.0 - 1, pos.1), pos),
+                    ),
                 };
+                self.rpositions.insert(other, id.clone());
+                self.connections.insert(connection);
             }
         }
         self.room = room;
@@ -75,6 +78,10 @@ impl Knowledge {
                 self.describes.remove(&quest.id);
                 self.quests.insert(quest.id.clone(), quest);
             },
+            crate::game::WorldData::Room(room) => {
+                self.describes.remove(&room.id);
+                self.rooms.insert(room.id.clone(), room);
+            },
             _ => return Err(std::io::Error::other("invalid data kind")),
         };
         Ok(())
@@ -85,6 +92,33 @@ impl Knowledge {
             self.describes.take(&v)
         } else {
             None
+        }
+    }
+
+    pub fn item_name(&mut self, id: &str) -> String {
+        if let Some(item) = self.items.get(id) {
+            item.name.clone()
+        } else {
+            self.describes.insert(id.to_string());
+            format!("{{{}}}", id)
+        }
+    }
+
+    pub fn npc_name(&mut self, id: &str) -> String {
+        if let Some(npc) = self.npcs.get(id) {
+            npc.name.clone()
+        } else {
+            self.describes.insert(id.to_string());
+            format!("{{{}}}", id)
+        }
+    }
+
+    pub fn room_name(&mut self, id: &str) -> String {
+        if let Some(room) = self.rooms.get(id) {
+            room.name.clone()
+        } else {
+            self.describes.insert(id.to_string());
+            format!("{{{}}}", id)
         }
     }
 }

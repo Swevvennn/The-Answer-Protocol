@@ -106,7 +106,7 @@ impl FriendlyCli {
                                         Some(error)
                                     },
                                     crate::messages::Message::Response(response) => self.process_response(response).await,
-                                    crate::messages::Message::Event(event) => self.process_event(event),
+                                    crate::messages::Message::Event(event) => self.process_event(event).await,
                                     crate::messages::Message::Command(_) => Some(crate::messages::Error::UnexpectedServerResponse),
                                 }
                             }
@@ -220,6 +220,12 @@ impl FriendlyCli {
                             }),
                             _ => (),
                         }
+                        "quest" if selected == "Abandon" => return Some(crate::messages::Command {
+                            kind: crate::messages::CommandKind::AbandonQuest,
+                            payload: crate::messages::Payload::new(&[
+                                crate::messages::PayloadKind::String(popup.data::<crate::game::Quest>().id.clone()),
+                            ]),
+                        }),
                         _ => (),
                     }
                     crate::tui::Popup::Input(popup) if popup.id == "auth" => return Some(crate::messages::Command {
@@ -299,11 +305,20 @@ impl FriendlyCli {
                             }
                         }
                         Focus::StatsInventory => {
-                            if let Some(item) = self.notebook.page::<crate::tui::RoomPage>(0).items.selected() {
+                            if let Some(item) = self.notebook.page::<crate::tui::StatsPage>(1).inventory.selected() {
                                 self.popup = Some(crate::tui::Popup::describe(
                                     "item",
                                     Box::new(item.clone()),
                                     vec!["Drop".to_string()],
+                                ));
+                            }
+                        }
+                        Focus::QuestsQuests => {
+                            if let Some(quest) = self.notebook.page::<crate::tui::QuestsPage>(2).quests.selected() {
+                                self.popup = Some(crate::tui::Popup::describe(
+                                    "quest",
+                                    Box::new(quest.clone()),
+                                    vec!["Abandon".to_string()],
                                 ));
                             }
                         }
@@ -316,7 +331,6 @@ impl FriendlyCli {
                                 ]),
                             });
                         }
-                        _ => (),
                     }
                 }
                 _ => (),
@@ -333,7 +347,17 @@ impl FriendlyCli {
         };
         match command {
             Some(command) => match command.kind {
-                crate::messages::CommandKind::AbandonQuest => {}
+                crate::messages::CommandKind::AbandonQuest => {
+                    let mut quest = String::new();
+                    if response.payload.is_empty() && command.payload.extract(&mut [
+                        crate::messages::PayloadExtractor::String(&mut quest),
+                    ]).is_ok() && let Some(quest) = self.knowledge.player.quests.get_mut(&quest) {
+                        quest.status = crate::game::QuestStatus::Abandoned;
+                        self.notebook.page::<crate::tui::QuestsPage>(2).update(&self.knowledge);
+                    } else {
+                        return Some(crate::messages::Error::UnexpectedServerResponse);
+                    }
+                }
                 crate::messages::CommandKind::Attack => {}
                 crate::messages::CommandKind::Chat => {
                     if !response.payload.is_empty() {
@@ -373,6 +397,7 @@ impl FriendlyCli {
                             return Some(crate::messages::Error::UnexpectedServerResponse);
                         }
                         self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Inventory)).await;
+                        self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Quests)).await;
                         self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Look)).await;
                     }
                 }
@@ -450,6 +475,7 @@ impl FriendlyCli {
                         return Some(crate::messages::Error::UnexpectedServerResponse);
                     }
                     self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Look)).await;
+                    self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Quests)).await;
                     self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Inventory)).await;
                 }
                 crate::messages::CommandKind::Talk => {
@@ -500,7 +526,7 @@ impl FriendlyCli {
         None
     }
 
-    fn process_event(&mut self, event: crate::messages::Event) -> Option<crate::messages::Error> {
+    async fn process_event(&mut self, event: crate::messages::Event) -> Option<crate::messages::Error> {
         match event.kind {
             crate::messages::EventKind::Chat => {
                 let mut message = crate::tui::ChatMessage {
@@ -516,6 +542,9 @@ impl FriendlyCli {
                 }
                 self.notebook.page::<crate::tui::ChatPage>(3).chat.push(message);
             }
+            crate::messages::EventKind::Invite => {}
+            crate::messages::EventKind::Join => {}
+            crate::messages::EventKind::Leave => {}
             crate::messages::EventKind::Players => {
                 let mut n = String::new();
                 if event.payload.extract(&mut [
@@ -532,9 +561,35 @@ impl FriendlyCli {
                 }
             }
             crate::messages::EventKind::PresenceEnter => {
-
+                let mut player = String::new();
+                if event.payload.extract(&mut [
+                    crate::messages::PayloadExtractor::String(&mut player),
+                ]).is_err() || !self.knowledge.room.players.insert(player) {
+                    return Some(crate::messages::Error::UnexpectedServerResponse);
+                }
+                self.notebook.page::<crate::tui::RoomPage>(0).update(&self.knowledge);
             }
-            _ => (),
+            crate::messages::EventKind::PresenceLeave => {
+                let mut player = String::new();
+                if event.payload.extract(&mut [
+                    crate::messages::PayloadExtractor::String(&mut player),
+                ]).is_err() || !self.knowledge.room.players.remove(&player) {
+                    return Some(crate::messages::Error::UnexpectedServerResponse);
+                }
+                self.notebook.page::<crate::tui::RoomPage>(0).update(&self.knowledge);
+            }
+            crate::messages::EventKind::QuestComplete => {
+                let mut quest = String::new();
+                if event.payload.extract(&mut [
+                    crate::messages::PayloadExtractor::String(&mut quest),
+                ]).is_ok() && let Some(quest) = self.knowledge.player.quests.get_mut(&quest) {
+                    quest.status = crate::game::QuestStatus::Completed;
+                    self.notebook.page::<crate::tui::QuestsPage>(2).update(&self.knowledge);
+                    self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Inventory)).await;
+                } else {
+                    return Some(crate::messages::Error::UnexpectedServerResponse);
+                }
+            }
         }
         None
     }
@@ -548,7 +603,7 @@ impl FriendlyCli {
         crate::tui::Header.render_with_data(&mut self.knowledge, header, frame.buffer_mut());
         self.notebook.render_with_data(&mut self.knowledge, body, frame.buffer_mut());
         if let Some(popup) = &mut self.popup {
-            popup.render(body, frame.buffer_mut());
+            popup.render_with_data(&mut self.knowledge, body, frame.buffer_mut());
         }
     }
 }

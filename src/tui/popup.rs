@@ -7,20 +7,16 @@ trait PopupWidget: crate::tui::Widget {
 
     fn content_height(&self) -> u16;
 
-    fn render_content(&mut self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer);
-}
-
-impl<T: PopupWidget> crate::tui::Widget for T {
-    fn render(&mut self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+    fn render_layout(&mut self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) -> ratatui::layout::Rect {
         let [_, area, _] = ratatui::layout::Layout::vertical([
             ratatui::layout::Constraint::Fill(1),
-            ratatui::layout::Constraint::Length(4 + self.content_height()),
+            ratatui::layout::Constraint::Length(4 + std::cmp::min(self.content_height(), area.height.saturating_sub(4))),
             ratatui::layout::Constraint::Fill(1),
         ])
             .areas(area);
         let [_, area, _] = ratatui::layout::Layout::horizontal([
             ratatui::layout::Constraint::Fill(1),
-            ratatui::layout::Constraint::Length(6 + self.content_width()),
+            ratatui::layout::Constraint::Length(6 + std::cmp::min(self.content_width(), area.width.saturating_sub(6))),
             ratatui::layout::Constraint::Fill(1),
         ])
             .areas(area);
@@ -29,8 +25,25 @@ impl<T: PopupWidget> crate::tui::Widget for T {
         let block = ratatui::widgets::Block::bordered()
             .title(format!(" {} ", self.title()))
             .padding(ratatui::widgets::Padding::symmetric(2, 1));
-        self.render_content(block.inner(area), buf);
+        let inner = block.inner(area);
         block.render(area, buf);
+        inner
+    }
+
+    fn render_content(&mut self, _area: ratatui::layout::Rect, _buf: &mut ratatui::buffer::Buffer) {}
+
+    fn render_content_with_data(&mut self, _knowledge: &mut crate::tui::Knowledge, _area: ratatui::layout::Rect, _buf: &mut ratatui::buffer::Buffer) {}
+}
+
+impl<T: PopupWidget> crate::tui::Widget for T {
+    fn render(&mut self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+        let area = self.render_layout(area, buf);
+        self.render_content(area, buf);
+    }
+
+    fn render_with_data(&mut self, knowledge: &mut crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+        let area = self.render_layout(area, buf);
+        self.render_content_with_data(knowledge, area, buf);
     }
 }
 
@@ -139,7 +152,7 @@ impl PopupWidget for PopupDescribe {
         self.data.height() + 4
     }
 
-    fn render_content(&mut self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+    fn render_content_with_data(&mut self, knowledge: &mut crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
         let [top, _, middle, _, bottom] = ratatui::layout::Layout::vertical([
             ratatui::layout::Constraint::Length(1),
             ratatui::layout::Constraint::Length(1),
@@ -150,7 +163,7 @@ impl PopupWidget for PopupDescribe {
             .areas(area);
         use crate::tui::Widget;
         self.b_return.render(top, buf);
-        self.data.render(middle, buf);
+        self.data.render_with_data(knowledge, middle, buf);
         self.buttons.render(bottom, buf);
     }
 }
@@ -395,10 +408,10 @@ impl crate::cli::HandleEvent for Popup {
 }
 
 impl crate::tui::Widget for Popup {
-    fn render(&mut self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+    fn render_with_data(&mut self, knowledge: &mut crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
         match self {
             Popup::Action(popup) => popup.render(area, buf),
-            Popup::Describe(popup) => popup.render(area, buf),
+            Popup::Describe(popup) => popup.render_with_data(knowledge, area, buf),
             Popup::Error(popup) => popup.render(area, buf),
             Popup::Info(popup) => popup.render(area, buf),
             Popup::Input(popup) => popup.render(area, buf),

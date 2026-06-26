@@ -119,25 +119,28 @@ impl crate::tui::Widget for Map {
         for y in 0..n.1 {
             for x in 0..n.0 {
                 let current = (pos.0 + x as i32, pos.1 + y as i32);
-                if let Some((_, name)) = knowledge.rooms.get(&current) {
-                    ratatui::widgets::Paragraph::new(format!(
+                if knowledge.rpositions.contains_key(&current) {
+                    let id = knowledge.rpositions[&current].clone();
+                    let mut p = ratatui::widgets::Paragraph::new(format!(
                         "{}{}",
-                        "\n".repeat(((cell.1 - space.1 * 2 - 3) / 2) as usize),
-                        name.as_str()
+                        "\n".repeat(((cell.1 - space.1 * 2 - 3) / 2 + !knowledge.positions.contains_key(&id) as u16) as usize),
+                        knowledge.room_name(&id).as_str()
                     ))
-                        .block(ratatui::widgets::Block::bordered()
+                        .centered();
+                    if knowledge.positions.contains_key(&id) {
+                        p = p.block(ratatui::widgets::Block::bordered()
                             .padding(ratatui::widgets::Padding::horizontal(1))
-                        )
-                        .centered()
-                        .render(
-                            ratatui::layout::Rect::new(
-                                begin.0 + cell.0 * x + space.0,
-                                begin.1 + cell.1 * y + space.1,
-                                cell.0 - space.0 * 2,
-                                cell.1 - space.1 * 2,
-                            ),
-                            buf,
                         );
+                    }
+                    p.render(
+                        ratatui::layout::Rect::new(
+                            begin.0 + cell.0 * x + space.0,
+                            begin.1 + cell.1 * y + space.1,
+                            cell.0 - space.0 * 2,
+                            cell.1 - space.1 * 2,
+                        ),
+                        buf,
+                    );
                 }
                 if x == 0 && knowledge.connections.contains(&((current.0 - 1, current.1), current)) {
                     ratatui::widgets::Paragraph::new("─".repeat(space.0 as usize * 2))

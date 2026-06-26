@@ -79,6 +79,7 @@ impl std::fmt::Display for QuestStatus {
 }
 
 #[derive(
+    Clone,
     serde::Deserialize,
     serde::Serialize,
 )]

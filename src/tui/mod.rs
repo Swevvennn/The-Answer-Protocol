@@ -10,6 +10,9 @@ pub use chat::Chat;
 pub use chat::ChatMessage;
 pub use chat::ChatPage;
 
+mod color;
+pub use color::Color;
+
 mod describe;
 
 mod focusable;

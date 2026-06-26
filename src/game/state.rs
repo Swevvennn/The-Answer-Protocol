@@ -12,6 +12,7 @@ pub enum WorldData {
     Item(crate::game::Item),
     Npc(crate::game::Npc),
     Quest(crate::game::Quest),
+    Room(crate::game::Room),
 }
 
 fn default_count() -> usize {
@@ -336,6 +337,16 @@ impl GameState {
                 crate::messages::Message::Response(crate::messages::Response {
                     payload: crate::messages::Payload::new(&[
                         crate::messages::PayloadKind::new_json(quest),
+                    ]),
+                })
+            } else {
+                crate::messages::Message::Error(crate::messages::Error::QuestNotFound)
+            }
+        } else if id.starts_with("room.") {
+            if let Some(room) = self.rooms.get(id) {
+                crate::messages::Message::Response(crate::messages::Response {
+                    payload: crate::messages::Payload::new(&[
+                        crate::messages::PayloadKind::new_json(&room.room),
                     ]),
                 })
             } else {
