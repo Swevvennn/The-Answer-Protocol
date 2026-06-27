@@ -180,6 +180,7 @@ impl Cli {
                     tap::game::Player::abandon_quest(game, username, &quest)
                 }
             }
+            tap::messages::CommandKind::Attack => tap::messages::Message::Error(tap::messages::Error::UnknownError),
             tap::messages::CommandKind::Chat => {
                 let mut scope = tap::messages::EventScope::Global;
                 let mut message = String::new();
@@ -220,6 +221,13 @@ impl Cli {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 } else {
                     tap::game::Player::drop(game, username, &item).await
+                }
+            }
+            tap::messages::CommandKind::GroupDescribe => {
+                if command.payload.is_empty() {
+                    tap::game::Player::describe_group(game, username)
+                } else {
+                    tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 }
             }
             tap::messages::CommandKind::GroupCreate => {
@@ -308,6 +316,7 @@ impl Cli {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 }
             }
+            tap::messages::CommandKind::Status => tap::messages::Message::Error(tap::messages::Error::UnknownError),
             tap::messages::CommandKind::Take => {
                 let mut item = String::new();
                 if command.payload.extract(&mut [
@@ -335,7 +344,6 @@ impl Cli {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 }
             }
-            _ => tap::messages::Message::Response(tap::messages::Response::default()),
         }
     }
 }

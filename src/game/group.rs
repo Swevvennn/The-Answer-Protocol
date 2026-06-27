@@ -60,7 +60,6 @@ impl Group {
                 kind: crate::messages::EventKind::Invite,
                 payload: crate::messages::Payload::new(&[
                     crate::messages::PayloadKind::String(group),
-                    crate::messages::PayloadKind::String(player.clone()),
                 ]),
             },
             |to| to.username == *invited,
@@ -105,37 +104,38 @@ impl Group {
     }
 
     pub async fn leave(game: &mut crate::game::GameState, player: &String) -> crate::messages::Message {
-        let group: String;
+        let mut name: String;
         if let Some(player) = game.players.get_mut(player) {
             if player.group.is_empty() {
                 return crate::messages::Message::Error(crate::messages::Error::NotInGroup);
             }
-            group = player.group.clone();
+            name = player.group.clone();
             player.group.clear();
         } else {
             return crate::messages::Message::Error(crate::messages::Error::ServerError);
         }
-        if game.groups[&group].players.len() == 1 {
-            game.groups.remove(&group);
+        if game.groups[&name].players.len() == 1 {
+            game.groups.remove(&name);
         } else {
-            let is_owner = group == *player;
-            if let Some(group) = game.groups.get_mut(&group) {
+            let is_owner = name == *player;
+            if let Some(group) = game.groups.get_mut(&name) {
                 group.players.remove(player);
                 if is_owner && let Some(new_owner) = group.players.iter().next() {
                     group.name = new_owner.clone();
                 }
             }
-            if is_owner && let Some(group) = game.groups.remove(&group) {
+            if is_owner && let Some(group) = game.groups.remove(&name) {
+                name = group.name.clone();
                 for player in &group.players {
                     if let Some(player) = game.players.get_mut(player) {
-                        player.group = group.name.clone();
+                        player.group = name.clone();
                     }
                 }
-                game.groups.insert(group.name.clone(), group);
+                game.groups.insert(name.clone(), group);
             }
         }
         crate::cli::Logger::event(
-            player,
+            &name,
             game,
             &crate::messages::Event {
                 scope: crate::messages::EventScope::Group,
@@ -144,7 +144,7 @@ impl Group {
                     crate::messages::PayloadKind::String(player.clone()),
                 ]),
             },
-            |to| to.group == group,
+            |to| to.group == name,
         ).await;
         crate::messages::Message::Response(crate::messages::Response::default())
     }

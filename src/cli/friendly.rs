@@ -24,6 +24,10 @@ enum Focus {
     RoomItems,
     StatsInventory,
     QuestsQuests,
+    GroupCreate,
+    GroupPlayers,
+    GroupLeave,
+    GroupInvitations,
     Chat,
 }
 
@@ -91,6 +95,10 @@ impl FriendlyCli {
                             Focus::RoomItems => self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).items.handle_event().await,
                             Focus::StatsInventory => self.notebook.page::<crate::tui::StatsPage>(Page::Stats as usize).inventory.handle_event().await,
                             Focus::QuestsQuests => self.notebook.page::<crate::tui::QuestsPage>(Page::Quests as usize).quests.handle_event().await,
+                            Focus::GroupCreate => self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).create.handle_event().await,
+                            Focus::GroupPlayers => self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).players.handle_event().await,
+                            Focus::GroupLeave => self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).leave.handle_event().await,
+                            Focus::GroupInvitations => self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).invitations.handle_event().await,
                             Focus::Chat => self.notebook.page::<crate::tui::ChatPage>(Page::Chat as usize).chat.handle_event().await,
                         }
                     }
@@ -98,11 +106,7 @@ impl FriendlyCli {
                     if let Some(event) = event {
                         match event {
                             crate::cli::Event::Interrupted => return None,
-                            event => if let Some(command) = self.process_input(event) {
-                                self.send_command(command).await
-                            } else {
-                                None
-                            },
+                            event => self.process_input(event).await,
                         }
                     } else {
                         None
@@ -155,8 +159,12 @@ impl FriendlyCli {
             Focus::RoomNPCs => (Focus::RoomPlayers, Focus::RoomItems, &mut self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).npcs.focus),
             Focus::RoomItems => (Focus::RoomNPCs, Focus::StatsInventory, &mut self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).items.focus),
             Focus::StatsInventory => (Focus::RoomItems, Focus::QuestsQuests, &mut self.notebook.page::<crate::tui::StatsPage>(Page::Stats as usize).inventory.focus),
-            Focus::QuestsQuests => (Focus::StatsInventory, Focus::Chat, &mut self.notebook.page::<crate::tui::QuestsPage>(Page::Quests as usize).quests.focus),
-            Focus::Chat => (Focus::QuestsQuests, Focus::WelcomeExit, &mut self.notebook.page::<crate::tui::ChatPage>(Page::Chat as usize).chat.focus),
+            Focus::QuestsQuests => (Focus::StatsInventory, if self.knowledge.player.group.is_empty() { Focus::GroupCreate } else { Focus::GroupPlayers }, &mut self.notebook.page::<crate::tui::QuestsPage>(Page::Quests as usize).quests.focus),
+            Focus::GroupCreate => (Focus::QuestsQuests, Focus::GroupInvitations, &mut self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).create.focus),
+            Focus::GroupPlayers => (Focus::QuestsQuests, Focus::GroupLeave, &mut self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).players.focus),
+            Focus::GroupLeave => (Focus::GroupPlayers, Focus::GroupInvitations, &mut self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).leave.focus),
+            Focus::GroupInvitations => (if self.knowledge.player.group.is_empty() { Focus::GroupCreate } else { Focus::GroupLeave }, Focus::Chat, &mut self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).invitations.focus),
+            Focus::Chat => (Focus::GroupInvitations, Focus::WelcomeExit, &mut self.notebook.page::<crate::tui::ChatPage>(Page::Chat as usize).chat.focus),
         }
     }
 
@@ -169,6 +177,7 @@ impl FriendlyCli {
             Focus::RoomReload | Focus::RoomMove | Focus::RoomPlayers | Focus::RoomNPCs | Focus::RoomItems  => Page::Room,
             Focus::StatsInventory => Page::Stats,
             Focus::QuestsQuests => Page::Quests,
+            Focus::GroupCreate | Focus::GroupPlayers | Focus::GroupLeave | Focus::GroupInvitations => Page::Group,
             Focus::Chat => Page::Chat,
         } as usize;
     }
@@ -184,76 +193,97 @@ impl FriendlyCli {
         None
     }
 
-    fn process_input(&mut self, event: crate::cli::Event) -> Option<crate::messages::Command> {
+    async fn process_input(&mut self, event: crate::cli::Event) -> Option<crate::messages::Error> {
         if self.popup.is_some() {
-            if matches!(event, crate::cli::Event::Validate) {
-                let mut popup = self.popup.take().unwrap();
-                match &mut popup {
-                    crate::tui::Popup::Ask(popup) if popup.id == "exit" && let Some(selected) = popup.selected() && selected => {
-                        self.client.close();
-                    }
-                    crate::tui::Popup::Action(popup) if let Some(selected) = popup.buttons.selected() => match popup.id {
-                        "move" if let Ok(direction) = crate::game::Direction::from_str(selected) => return Some(crate::messages::Command {
-                            kind: crate::messages::CommandKind::Move,
-                            payload: crate::messages::Payload::new(&[
-                                crate::messages::PayloadKind::String(direction.to_string()),
-                            ]),
-                        }),
-                        "player" if selected == "Invite" => return Some(crate::messages::Command {
-                            kind: crate::messages::CommandKind::GroupInvite,
-                            payload: crate::messages::Payload::new(&[
-                                crate::messages::PayloadKind::String(popup.title.clone()),
-                            ]),
-                        }),
-                        _ => (),
-                    }
-                    crate::tui::Popup::Describe(popup) if let Some(selected) = popup.buttons.selected() => match popup.id {
-                        "item" => match selected.as_str() {
-                            "Drop" => return Some(crate::messages::Command {
-                                kind: crate::messages::CommandKind::Drop,
-                                payload: crate::messages::Payload::new(&[
-                                    crate::messages::PayloadKind::String(popup.data::<crate::game::Item>().id.clone()),
-                                ]),
-                            }),
-                            "Take" => return Some(crate::messages::Command {
-                                kind: crate::messages::CommandKind::Take,
-                                payload: crate::messages::Payload::new(&[
-                                    crate::messages::PayloadKind::String(popup.data::<crate::game::Item>().id.clone()),
-                                ]),
-                            }),
-                            _ => (),
+            match event {
+                crate::cli::Event::Validate => {
+                    let mut popup = self.popup.take().unwrap();
+                    match &mut popup {
+                        crate::tui::Popup::Ask(popup) if popup.id == "exit" && let Some(selected) = popup.selected() && selected => {
+                            self.client.close();
+                            None
                         }
-                        "npc" => match selected.as_str() {
-                            "Talk" => return Some(crate::messages::Command {
-                                kind: crate::messages::CommandKind::Talk,
+                        crate::tui::Popup::Action(popup) if let Some(selected) = popup.buttons.selected() => match popup.id {
+                            "invite" => match selected.as_str() {
+                                "Dismiss" => {
+                                    self.knowledge.invitations.remove(&popup.title);
+                                    self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).update(&self.knowledge);
+                                    None
+                                }
+                                "Accept" => {
+                                    self.knowledge.invitations.remove(&popup.title);
+                                    self.send_command(crate::messages::Command {
+                                        kind: crate::messages::CommandKind::GroupJoin,
+                                        payload: crate::messages::Payload::new(&[
+                                            crate::messages::PayloadKind::String(popup.title.clone()),
+                                        ]),
+                                    }).await
+                                }
+                                _ => None,
+                            }
+                            "move" if let Ok(direction) = crate::game::Direction::from_str(selected) => self.send_command(crate::messages::Command {
+                                kind: crate::messages::CommandKind::Move,
                                 payload: crate::messages::Payload::new(&[
-                                    crate::messages::PayloadKind::String(popup.data::<crate::game::Npc>().id.clone()),
+                                    crate::messages::PayloadKind::String(direction.to_string()),
                                 ]),
-                            }),
-                            "Ask for a quest" => return Some(crate::messages::Command {
-                                kind: crate::messages::CommandKind::Quest,
+                            }).await,
+                            "player" if selected == "Invite" => self.send_command(crate::messages::Command {
+                                kind: crate::messages::CommandKind::GroupInvite,
                                 payload: crate::messages::Payload::new(&[
-                                    crate::messages::PayloadKind::String(popup.data::<crate::game::Npc>().id.clone()),
+                                    crate::messages::PayloadKind::String(popup.title.clone()),
                                 ]),
-                            }),
-                            _ => (),
+                            }).await,
+                            _ => None,
                         }
-                        "quest" if selected == "Abandon" => return Some(crate::messages::Command {
-                            kind: crate::messages::CommandKind::AbandonQuest,
+                        crate::tui::Popup::Describe(popup) if let Some(selected) = popup.buttons.selected() => match popup.id {
+                            "item" => match selected.as_str() {
+                                "Drop" => self.send_command(crate::messages::Command {
+                                    kind: crate::messages::CommandKind::Drop,
+                                    payload: crate::messages::Payload::new(&[
+                                        crate::messages::PayloadKind::String(popup.data::<crate::game::Item>().id.clone()),
+                                    ]),
+                                }).await,
+                                "Take" => self.send_command(crate::messages::Command {
+                                    kind: crate::messages::CommandKind::Take,
+                                    payload: crate::messages::Payload::new(&[
+                                        crate::messages::PayloadKind::String(popup.data::<crate::game::Item>().id.clone()),
+                                    ]),
+                                }).await,
+                                _ => None,
+                            }
+                            "npc" => match selected.as_str() {
+                                "Talk" => self.send_command(crate::messages::Command {
+                                    kind: crate::messages::CommandKind::Talk,
+                                    payload: crate::messages::Payload::new(&[
+                                        crate::messages::PayloadKind::String(popup.data::<crate::game::Npc>().id.clone()),
+                                    ]),
+                                }).await,
+                                "Ask for a quest" => self.send_command(crate::messages::Command {
+                                    kind: crate::messages::CommandKind::Quest,
+                                    payload: crate::messages::Payload::new(&[
+                                        crate::messages::PayloadKind::String(popup.data::<crate::game::Npc>().id.clone()),
+                                    ]),
+                                }).await,
+                                _ => None,
+                            }
+                            "quest" if selected == "Abandon" => self.send_command(crate::messages::Command {
+                                kind: crate::messages::CommandKind::AbandonQuest,
+                                payload: crate::messages::Payload::new(&[
+                                    crate::messages::PayloadKind::String(popup.data::<crate::game::Quest>().id.clone()),
+                                ]),
+                            }).await,
+                            _ => None,
+                        }
+                        crate::tui::Popup::Input(popup) if popup.id == "auth" => self.send_command(crate::messages::Command {
+                            kind: crate::messages::CommandKind::Connect,
                             payload: crate::messages::Payload::new(&[
-                                crate::messages::PayloadKind::String(popup.data::<crate::game::Quest>().id.clone()),
+                                crate::messages::PayloadKind::String(popup.input.input.consume()),
                             ]),
-                        }),
-                        _ => (),
+                        }).await,
+                        _ => None,
                     }
-                    crate::tui::Popup::Input(popup) if popup.id == "auth" => return Some(crate::messages::Command {
-                        kind: crate::messages::CommandKind::Connect,
-                        payload: crate::messages::Payload::new(&[
-                            crate::messages::PayloadKind::String(popup.input.input.consume()),
-                        ]),
-                    }),
-                    _ => (),
                 }
+                _ => None,
             }
         } else {
             match event {
@@ -263,6 +293,7 @@ impl FriendlyCli {
                 } if matches!(self.client.state, crate::network::ClientState::Authenticated) => {
                     let focus = self.focus_info().1;
                     self.change_focus(focus);
+                    None
                 }
                 crate::cli::Event::Key {
                     code: crate::cli::KeyCode::BackTab,
@@ -270,6 +301,7 @@ impl FriendlyCli {
                 } if matches!(self.client.state, crate::network::ClientState::Authenticated) => {
                     let focus = self.focus_info().0;
                     self.change_focus(focus);
+                    None
                 }
                 crate::cli::Event::Validate => {
                     match &self.focused {
@@ -279,10 +311,9 @@ impl FriendlyCli {
                                 "Exit",
                                 "Do you really want to exit ?",
                             ));
+                            None
                         }
-                        Focus::RoomReload => {
-                            return Some(crate::messages::Command::new(crate::messages::CommandKind::Look));
-                        }
+                        Focus::RoomReload => self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Look)).await,
                         Focus::RoomMove => {
                             let mut actions = vec!["Return".to_string()];
                             let mut directions = self.knowledge.room.room.exits
@@ -295,6 +326,7 @@ impl FriendlyCli {
                                 "Move to",
                                 actions,
                             ));
+                            None
                         }
                         Focus::RoomPlayers => {
                             if let Some(player) = self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).players.selected() {
@@ -307,6 +339,7 @@ impl FriendlyCli {
                                     ],
                                 ));
                             }
+                            None
                         }
                         Focus::RoomNPCs => {
                             if let Some(npc) = self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).npcs.selected() {
@@ -319,6 +352,7 @@ impl FriendlyCli {
                                     ],
                                 ));
                             }
+                            None
                         }
                         Focus::RoomItems => {
                             if let Some(item) = self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).items.selected() {
@@ -328,6 +362,7 @@ impl FriendlyCli {
                                     vec!["Take".to_string()],
                                 ));
                             }
+                            None
                         }
                         Focus::StatsInventory => {
                             if let Some(item) = self.notebook.page::<crate::tui::StatsPage>(Page::Stats as usize).inventory.selected() {
@@ -337,6 +372,7 @@ impl FriendlyCli {
                                     vec!["Drop".to_string()],
                                 ));
                             }
+                            None
                         }
                         Focus::QuestsQuests => {
                             if let Some(quest) = self.notebook.page::<crate::tui::QuestsPage>(Page::Quests as usize).quests.selected() {
@@ -346,31 +382,49 @@ impl FriendlyCli {
                                     vec!["Abandon".to_string()],
                                 ));
                             }
+                            None
+                        }
+                        Focus::GroupCreate => self.send_command(crate::messages::Command::new(crate::messages::CommandKind::GroupCreate)).await,
+                        Focus::GroupPlayers => None,
+                        Focus::GroupLeave => self.send_command(crate::messages::Command::new(crate::messages::CommandKind::GroupLeave)).await,
+                        Focus::GroupInvitations => {
+                            if let Some(group) = self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).invitations.selected() {
+                                self.popup = Some(crate::tui::Popup::action(
+                                    "invite",
+                                    group,
+                                    vec![
+                                        "Return".to_string(),
+                                        "Accept".to_string(),
+                                        "Dismiss".to_string(),
+                                    ],
+                                ));
+                            }
+                            None
                         }
                         Focus::Chat => {
-                            return Some(crate::messages::Command {
+                            let scope = self.notebook.page::<crate::tui::ChatPage>(Page::Chat as usize).chat.scope.to_string();
+                            let input = self.notebook.page::<crate::tui::ChatPage>(Page::Chat as usize).chat.input.input.consume();
+                            self.send_command(crate::messages::Command {
                                 kind: crate::messages::CommandKind::Chat,
                                 payload: crate::messages::Payload::new(&[
-                                    crate::messages::PayloadKind::String(self.notebook.page::<crate::tui::ChatPage>(Page::Chat as usize).chat.scope.to_string()),
-                                    crate::messages::PayloadKind::String(self.notebook.page::<crate::tui::ChatPage>(Page::Chat as usize).chat.input.input.consume()),
+                                    crate::messages::PayloadKind::String(scope),
+                                    crate::messages::PayloadKind::String(input),
                                 ]),
-                            });
+                            }).await
                         }
                     }
                 }
-                _ => (),
+                _ => None,
             }
         }
-        None
     }
 
     async fn process_response(&mut self, response: crate::messages::Response) -> Option<crate::messages::Error> {
-        let command = if self.commands.is_empty() {
+        match if self.commands.is_empty() {
             None
         } else {
             Some(self.commands.remove(0))
-        };
-        match command {
+        } {
             Some(command) => match command.kind {
                 crate::messages::CommandKind::AbandonQuest => {
                     let mut quest = String::new();
@@ -379,21 +433,22 @@ impl FriendlyCli {
                     ]).is_ok() && let Some(quest) = self.knowledge.player.quests.get_mut(&quest) {
                         quest.status = crate::game::QuestStatus::Abandoned;
                         self.notebook.page::<crate::tui::QuestsPage>(Page::Quests as usize).update(&self.knowledge);
+                        None
                     } else {
-                        return Some(crate::messages::Error::UnexpectedServerResponse);
+                        Some(crate::messages::Error::UnexpectedServerResponse)
                     }
                 }
-                crate::messages::CommandKind::Attack => {}
+                crate::messages::CommandKind::Attack => None,
                 crate::messages::CommandKind::Chat => {
-                    if !response.payload.is_empty() {
-                        return Some(crate::messages::Error::UnexpectedServerResponse);
+                    if response.payload.is_empty() {
+                        None
+                    } else {
+                        Some(crate::messages::Error::UnexpectedServerResponse)
                     }
                 }
                 crate::messages::CommandKind::Connect => if response.payload.extract(&mut [
                     crate::messages::PayloadExtractor::String(&mut "connected".to_string()),
-                ]).is_err() {
-                    return Some(crate::messages::Error::UnexpectedServerResponse);
-                } else {
+                ]).is_ok() {
                     self.client.state = crate::network::ClientState::Authenticated;
                     self.knowledge.player.username.clear();
                     if command.payload.extract(&mut [
@@ -401,14 +456,18 @@ impl FriendlyCli {
                     ]).is_err() {
                         return Some(crate::messages::Error::UnexpectedServerResponse);
                     }
-                    self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Look)).await;
+                    self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Look)).await
+                } else {
+                    Some(crate::messages::Error::UnexpectedServerResponse)
                 }
                 crate::messages::CommandKind::Describe => {
                     let mut data = crate::game::WorldData::default();
                     if response.payload.extract(&mut [
                         crate::messages::PayloadExtractor::Json(&mut data),
-                    ]).is_err() || self.knowledge.update(data).is_err() {
-                        return Some(crate::messages::Error::UnexpectedServerResponse);
+                    ]).is_ok() && self.knowledge.update(data).is_ok() {
+                        None
+                    } else {
+                        Some(crate::messages::Error::UnexpectedServerResponse)
                     }
                 }
                 crate::messages::CommandKind::Drop => {
@@ -418,35 +477,84 @@ impl FriendlyCli {
                                 key: &mut "dropped".to_string(),
                                 value: &mut s,
                             },
-                        ]).is_err() {
-                            return Some(crate::messages::Error::UnexpectedServerResponse);
+                        ]).is_ok() {
+                            if self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Inventory)).await.is_none() &&
+                                self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Quests)).await.is_none() &&
+                                self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Look)).await.is_none() {
+                                None
+                            } else {
+                                Some(crate::messages::Error::SendFailed)
+                            }
+                        } else {
+                            Some(crate::messages::Error::UnexpectedServerResponse)
                         }
-                        self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Inventory)).await;
-                        self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Quests)).await;
-                        self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Look)).await;
+                    } else {
+                        None
                     }
                 }
-                crate::messages::CommandKind::GroupCreate => {}
-                crate::messages::CommandKind::GroupInvite => {}
-                crate::messages::CommandKind::GroupJoin => {}
-                crate::messages::CommandKind::GroupLeave => {}
+                crate::messages::CommandKind::GroupDescribe => {
+                    let mut group = crate::game::Group::default();
+                    if response.payload.extract(&mut [
+                        crate::messages::PayloadExtractor::Json(&mut group),
+                    ]).is_ok() {
+                        self.knowledge.change_group(Some(group));
+                        self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).update(&self.knowledge);
+                        None
+                    } else {
+                        Some(crate::messages::Error::UnexpectedServerResponse)
+                    }
+                }
+                crate::messages::CommandKind::GroupCreate | crate::messages::CommandKind::GroupJoin => {
+                    let mut group = String::new();
+                    if response.payload.extract(&mut [
+                        crate::messages::PayloadExtractor::KeyValue {
+                            key: &mut "group".to_string(),
+                            value: &mut group,
+                        },
+                    ]).is_ok() {
+                        self.change_focus(Focus::GroupPlayers);
+                        self.send_command(crate::messages::Command::new(crate::messages::CommandKind::GroupDescribe)).await
+                    } else {
+                        Some(crate::messages::Error::UnexpectedServerResponse)
+                    }
+                }
+                crate::messages::CommandKind::GroupInvite => {
+                    if response.payload.is_empty() {
+                        None
+                    } else {
+                        Some(crate::messages::Error::UnexpectedServerResponse)
+                    }
+                }
+                crate::messages::CommandKind::GroupLeave => {
+                    if response.payload.is_empty() {
+                        self.knowledge.change_group(None);
+                        self.change_focus(Focus::GroupCreate);
+                        None
+                    } else {
+                        Some(crate::messages::Error::UnexpectedServerResponse)
+                    }
+                }
                 crate::messages::CommandKind::Inventory => {
                     if response.payload.extract(&mut [
                         crate::messages::PayloadExtractor::Json(&mut self.knowledge.player.items),
-                    ]).is_err() {
-                        return Some(crate::messages::Error::UnexpectedServerResponse);
+                    ]).is_ok() {
+                        self.notebook.page::<crate::tui::StatsPage>(Page::Stats as usize).update(&self.knowledge);
+                        None
+                    } else {
+                        Some(crate::messages::Error::UnexpectedServerResponse)
                     }
-                    self.notebook.page::<crate::tui::StatsPage>(Page::Stats as usize).update(&self.knowledge);
                 }
                 crate::messages::CommandKind::Look => {
                     let mut room = crate::game::RoomState::default();
                     if response.payload.extract(&mut [
                         crate::messages::PayloadExtractor::Json(&mut room),
-                    ]).is_err() {
-                        return Some(crate::messages::Error::UnexpectedServerResponse);
+                    ]).is_ok() {
+                        self.knowledge.change_room(room);
+                        self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).update(&self.knowledge);
+                        None
+                    } else {
+                        Some(crate::messages::Error::UnexpectedServerResponse)
                     }
-                    self.knowledge.change_room(room);
-                    self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).update(&self.knowledge);
                 }
                 crate::messages::CommandKind::Move => {
                     let mut room = String::new();
@@ -455,66 +563,78 @@ impl FriendlyCli {
                             key: &mut "room".to_string(),
                             value: &mut room,
                         },
-                    ]).is_err() {
-                        return Some(crate::messages::Error::UnexpectedServerResponse);
+                    ]).is_ok() {
+                        self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Look)).await
+                    } else {
+                        Some(crate::messages::Error::UnexpectedServerResponse)
                     }
-                    self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Look)).await;
                 }
                 crate::messages::CommandKind::Quest => {
                     let mut quest = crate::game::Quest::default();
                     if response.payload.extract(&mut [
                         crate::messages::PayloadExtractor::Json(&mut quest),
-                    ]).is_err() {
-                        return Some(crate::messages::Error::UnexpectedServerResponse);
+                    ]).is_ok() {
+                        self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Quests)).await
+                    } else {
+                        Some(crate::messages::Error::UnexpectedServerResponse)
                     }
-                    self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Quests)).await;
                 }
                 crate::messages::CommandKind::Quests => {
                     let mut quests: Vec<crate::game::QuestProgress> = Vec::new();
                     if response.payload.extract(&mut [
                         crate::messages::PayloadExtractor::Json(&mut quests),
-                    ]).is_err() {
-                        return Some(crate::messages::Error::UnexpectedServerResponse);
+                    ]).is_ok() {
+                        self.knowledge.player.quests.clear();
+                        for quest in quests.into_iter() {
+                            self.knowledge.player.quests.insert(quest.quest.clone(), quest);
+                        }
+                        self.notebook.page::<crate::tui::QuestsPage>(Page::Quests as usize).update(&self.knowledge);
+                        None
+                    } else {
+                        Some(crate::messages::Error::UnexpectedServerResponse)
                     }
-                    self.knowledge.player.quests.clear();
-                    for quest in quests.into_iter() {
-                        self.knowledge.player.quests.insert(quest.quest.clone(), quest);
-                    }
-                    self.notebook.page::<crate::tui::QuestsPage>(Page::Quests as usize).update(&self.knowledge);
                 }
                 crate::messages::CommandKind::Quit => if response.payload.extract(&mut [
                     crate::messages::PayloadExtractor::String(&mut "bye".to_string()),
-                ]).is_err() {
-                    return Some(crate::messages::Error::UnexpectedServerResponse);
-                } else {
+                ]).is_ok() {
                     self.client.close();
+                    None
+                } else {
+                    Some(crate::messages::Error::UnexpectedServerResponse)
                 }
-                crate::messages::CommandKind::Status => {}
+                crate::messages::CommandKind::Status => None,
                 crate::messages::CommandKind::Take => {
                     if response.payload.extract(&mut [
                         crate::messages::PayloadExtractor::KeyValue {
                             key: &mut "taken".to_string(),
                             value: &mut "".to_string(),
                         },
-                    ]).is_err() {
-                        return Some(crate::messages::Error::UnexpectedServerResponse);
+                    ]).is_ok() {
+                        if self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Look)).await.is_none() &&
+                            self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Quests)).await.is_none() &&
+                            self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Inventory)).await.is_none() {
+                            None
+                        } else {
+                            Some(crate::messages::Error::SendFailed)
+                        }
+                    } else {
+                        Some(crate::messages::Error::UnexpectedServerResponse)
                     }
-                    self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Look)).await;
-                    self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Quests)).await;
-                    self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Inventory)).await;
                 }
                 crate::messages::CommandKind::Talk => {
                     let mut dialogue = String::new();
                     if response.payload.extract(&mut [
                         crate::messages::PayloadExtractor::String(&mut dialogue),
-                    ]).is_err() {
-                        return Some(crate::messages::Error::UnexpectedServerResponse);
-                    }
-                    if let crate::messages::PayloadKind::String(id) = &command.payload.args[0] && let Some(npc) = self.knowledge.npcs.get(id) {
-                        self.popup = Some(crate::tui::Popup::info(
-                            &npc.name,
-                            &dialogue,
-                        ));
+                    ]).is_ok() {
+                        if let crate::messages::PayloadKind::String(id) = &command.payload.args[0] && let Some(npc) = self.knowledge.npcs.get(id) {
+                            self.popup = Some(crate::tui::Popup::info(
+                                &npc.name,
+                                &dialogue,
+                            ));
+                        }
+                        None
+                    } else {
+                        Some(crate::messages::Error::UnexpectedServerResponse)
                     }
                 }
                 crate::messages::CommandKind::Who => {
@@ -524,12 +644,11 @@ impl FriendlyCli {
                             key: &mut "players".to_string(),
                             value: &mut players,
                         },
-                    ]).is_err() {
-                        return Some(crate::messages::Error::UnexpectedServerResponse);
-                    }
-                    match players.parse::<usize>() {
-                        Ok(v) => self.knowledge.players = v,
-                        Err(_) => return Some(crate::messages::Error::UnexpectedServerResponse),
+                    ]).is_ok() && let Ok(v) = players.parse::<usize>() {
+                        self.knowledge.players = v;
+                        None
+                    } else {
+                        Some(crate::messages::Error::UnexpectedServerResponse)
                     }
                 }
             }
@@ -542,13 +661,14 @@ impl FriendlyCli {
                         value: &mut self.client.proto,
                     }
                 ]).is_err() {
-                    return Some(crate::messages::Error::UnexpectedServerResponse);
+                    Some(crate::messages::Error::UnexpectedServerResponse)
+                } else {
+                    self.knowledge.addr = self.client.addr.clone();
+                    self.knowledge.proto = self.client.proto.clone();
+                    None
                 }
-                self.knowledge.addr = self.client.addr.clone();
-                self.knowledge.proto = self.client.proto.clone();
             }
-        };
-        None
+        }
     }
 
     async fn process_event(&mut self, event: crate::messages::Event) -> Option<crate::messages::Error> {
@@ -567,9 +687,34 @@ impl FriendlyCli {
                 }
                 self.notebook.page::<crate::tui::ChatPage>(Page::Chat as usize).chat.push(message);
             }
-            crate::messages::EventKind::Invite => {}
-            crate::messages::EventKind::Join => {}
-            crate::messages::EventKind::Leave => {}
+            crate::messages::EventKind::Invite => {
+                let mut group = String::new();
+                if event.payload.extract(&mut [
+                    crate::messages::PayloadExtractor::String(&mut group),
+                ]).is_err() {
+                    return Some(crate::messages::Error::UnexpectedServerResponse);
+                }
+                self.knowledge.invitations.insert(group);
+                self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).update(&self.knowledge);
+            }
+            crate::messages::EventKind::Join => {
+                let mut player = String::new();
+                if event.payload.extract(&mut [
+                    crate::messages::PayloadExtractor::String(&mut player),
+                ]).is_err() || self.knowledge.player.group.is_empty() || !self.knowledge.group.players.insert(player) {
+                    return Some(crate::messages::Error::UnexpectedServerResponse);
+                }
+                self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).update(&self.knowledge);
+            }
+            crate::messages::EventKind::Leave => {
+                let mut player = String::new();
+                if event.payload.extract(&mut [
+                    crate::messages::PayloadExtractor::String(&mut player),
+                ]).is_err() || self.knowledge.player.group.is_empty() || !self.knowledge.group.players.remove(&player) {
+                    return Some(crate::messages::Error::UnexpectedServerResponse);
+                }
+                self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).update(&self.knowledge);
+            }
             crate::messages::EventKind::Players => {
                 let mut n = String::new();
                 if event.payload.extract(&mut [

@@ -13,6 +13,7 @@ pub struct Knowledge {
     pub connections: std::collections::HashSet<((i32, i32), (i32, i32))>,
     pub room: crate::game::RoomState,
     pub group: crate::game::Group,
+    pub invitations: std::collections::HashSet<String>,
     pub player: crate::game::Player,
 }
 
@@ -57,15 +58,21 @@ impl Knowledge {
                 self.connections.insert(connection);
             }
         }
+        self.player.room = room.room.id.clone();
         self.room = room;
+    }
+
+    pub fn change_group(&mut self, group: Option<crate::game::Group>) {
+        if let Some(group) = group {
+            self.player.group = group.name.clone();
+            self.group = group;
+        } else {
+            self.player.group.clear();
+        }
     }
 
     pub fn update(&mut self, data: crate::game::WorldData) -> Result<(), std::io::Error> {
         match data {
-            crate::game::WorldData::Group(group) => {
-                self.describes.remove(&group.name);
-                self.group = group;
-            }
             crate::game::WorldData::Item(item) => {
                 self.describes.remove(&item.id);
                 self.items.insert(item.id.clone(), item);

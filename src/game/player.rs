@@ -119,6 +119,18 @@ impl Player {
         })
     }
 
+    pub fn describe_group(game: &crate::game::GameState, player: &String) -> crate::messages::Message {
+        if game.players[player].group.is_empty() {
+            crate::messages::Message::Error(crate::messages::Error::NotInGroup)
+        } else {
+            crate::messages::Message::Response(crate::messages::Response {
+                payload: crate::messages::Payload::new(&[
+                    crate::messages::PayloadKind::new_json(&game.groups[&game.players[player].group]),
+                ]),
+            })
+        }
+    }
+
     pub async fn move_to(game: &mut crate::game::GameState, player: &String, direction: &crate::game::Direction) -> crate::messages::Message {
         let room: String;
         if let Some(s) = game.rooms[&game.players[player].room].room.exits.get(direction) {

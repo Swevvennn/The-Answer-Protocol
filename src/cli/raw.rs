@@ -88,21 +88,19 @@ impl RawCli {
                         match event {
                             crate::cli::Event::Interrupted => return None,
                             crate::cli::Event::Validate if !self.waiter.is_waiting() => {
-                                print_out(self, 'C', &self.input.buffer);
-                                match crate::messages::Command::from_str(&self.input.consume()) {
-                                    Ok(command) => {
-                                        self.waiter.begin(3);
-                                        self.command = Some(command.clone());
-                                        if let Some(writer) = &self.client.writer {
-                                            match writer.write_message(&crate::messages::Message::Command(command)).await {
-                                                Ok(_) => None,
-                                                Err(_) => Some(crate::messages::Error::SendFailed),
-                                            }
-                                        } else {
-                                            Some(crate::messages::Error::SendFailed)
-                                        }
+                                let input = self.input.consume();
+                                print_out(self, 'C', &input);
+                                self.waiter.begin(3);
+                                if let Ok(command) = crate::messages::Command::from_str(&input) {
+                                    self.command = Some(command);
+                                }
+                                if let Some(writer) = &self.client.writer {
+                                    match writer.write(&format!("{}\n", input)).await {
+                                        Ok(_) => None,
+                                        Err(_) => Some(crate::messages::Error::SendFailed),
                                     }
-                                    Err(_) => Some(crate::messages::Error::NotACommand),
+                                } else {
+                                    Some(crate::messages::Error::SendFailed)
                                 }
                             }
                             _ => {

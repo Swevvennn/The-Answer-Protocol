@@ -302,17 +302,7 @@ impl GameState {
     }
 
     pub fn describe(&self, id: &String) -> crate::messages::Message {
-        if id.starts_with("group.") {
-            if let Some(group) = self.groups.get(id) {
-                crate::messages::Message::Response(crate::messages::Response {
-                    payload: crate::messages::Payload::new(&[
-                        crate::messages::PayloadKind::new_json(group),
-                    ]),
-                })
-            } else {
-                crate::messages::Message::Error(crate::messages::Error::GroupNotFound)
-            }
-        } else if id.starts_with("item.") {
+        if id.starts_with("item.") {
             if let Some(item) = self.items.get(id) {
                 crate::messages::Message::Response(crate::messages::Response {
                     payload: crate::messages::Payload::new(&[
