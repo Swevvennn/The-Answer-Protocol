@@ -152,9 +152,11 @@ impl Player {
     }
 
     pub async fn take(game: &mut crate::game::GameState, player: &String, item: &String) -> crate::messages::Message {
+        let id: String;
         if let Some(player) = game.players.get_mut(player) && let Some(room) = game.rooms.get_mut(&player.room) {
             if let Some(i) = room.items.iter().position(|i| *i == *item || game.items[i].name == *item) {
-                player.items.push(room.items.remove(i));
+                id = room.items.remove(i);
+                player.items.push(id.clone());
             } else {
                 return crate::messages::Message::Error(crate::messages::Error::ItemNotFound)
             }
@@ -166,7 +168,7 @@ impl Player {
             payload: crate::messages::Payload::new(&[
                 crate::messages::PayloadKind::KeyValue {
                     key: "taken".to_string(),
-                    value: item.clone(),
+                    value: id,
                 },
             ]),
         })
@@ -190,9 +192,11 @@ impl Player {
     }
 
     pub async fn drop(game: &mut crate::game::GameState, player: &String, item: &String) -> crate::messages::Message {
+        let id: String;
         if let Some(player) = game.players.get_mut(player) && let Some(room) = game.rooms.get_mut(&player.room) {
             if let Some(i) = player.items.iter().position(|i| *i == *item || game.items[i].name == *item) {
-                room.items.push(player.items.remove(i));
+                id = player.items.remove(i);
+                room.items.push(id.clone());
             } else {
                 return crate::messages::Message::Error(crate::messages::Error::ItemNotInInventory)
             }
@@ -204,7 +208,7 @@ impl Player {
             payload: crate::messages::Payload::new(&[
                 crate::messages::PayloadKind::KeyValue {
                     key: "dropped".to_string(),
-                    value: item.clone(),
+                    value: id,
                 },
             ]),
         })

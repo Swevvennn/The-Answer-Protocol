@@ -17,7 +17,7 @@ impl crate::cli::HandleEvent for Input {
         match self.handler.handle_event().await {
             Some(event) => match event {
                 crate::cli::Event::Key { code, modifiers } => match (code, modifiers) {
-                    (crate::cli::KeyCode::Char(c), crate::cli::KeyModifiers::NONE | crate::cli::KeyModifiers::SHIFT) => {
+                    (crate::cli::KeyCode::Char(c), _) => {
                         self.buffer.push(c);
                         None
                     }
