@@ -3,7 +3,7 @@ use ratatui::widgets::Widget;
 use crate::tui::ToListItem;
 
 pub struct RoomPage {
-    pub reload: crate::tui::Button,
+    pub refresh: crate::tui::Button,
     pub move_to: crate::tui::Button,
     pub players: crate::tui::List<String>,
     pub npcs: crate::tui::List<crate::game::Npc>,
@@ -21,7 +21,7 @@ impl RoomPage {
 impl Default for RoomPage {
     fn default() -> Self {
         Self {
-            reload: crate::tui::Button::new("Reload"),
+            refresh: crate::tui::Button::new("Refresh"),
             move_to: crate::tui::Button::new("Move"),
             players: crate::tui::List::new("Players"),
             npcs: crate::tui::List::new("NPCs"),
@@ -65,7 +65,7 @@ impl crate::tui::Widget for RoomPage {
         ratatui::widgets::Clear.render(move_to, buf);
         ratatui::widgets::Clear.render(c4, buf);
         ratatui::widgets::Clear.render(bottom, buf);
-        self.reload.render(top, buf);
+        self.refresh.render(top, buf);
         ratatui::widgets::Paragraph::new(format!(
             "{}: {}",
             knowledge.room.room.name.as_str(),

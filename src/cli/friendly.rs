@@ -88,7 +88,7 @@ impl FriendlyCli {
                     } else {
                         match &self.focused {
                             Focus::WelcomeExit => self.notebook.page::<crate::tui::WelcomePage>(Page::Welcome as usize).exit.handle_event().await,
-                            Focus::RoomReload => self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).reload.handle_event().await,
+                            Focus::RoomReload => self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).refresh.handle_event().await,
                             Focus::RoomMove => self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).move_to.handle_event().await,
                             Focus::RoomPlayers => self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).players.handle_event().await,
                             Focus::RoomNPCs => self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).npcs.handle_event().await,
@@ -153,7 +153,7 @@ impl FriendlyCli {
     fn focus_info(&mut self) -> (Focus, Focus, &mut bool) {
         match &self.focused {
             Focus::WelcomeExit => (Focus::Chat, Focus::RoomReload, &mut self.notebook.page::<crate::tui::WelcomePage>(Page::Welcome as usize).exit.focus),
-            Focus::RoomReload => (Focus::WelcomeExit, Focus::RoomMove, &mut self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).reload.focus),
+            Focus::RoomReload => (Focus::WelcomeExit, Focus::RoomMove, &mut self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).refresh.focus),
             Focus::RoomMove => (Focus::RoomReload, Focus::RoomPlayers, &mut self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).move_to.focus),
             Focus::RoomPlayers => (Focus::RoomMove, Focus::RoomNPCs, &mut self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).players.focus),
             Focus::RoomNPCs => (Focus::RoomPlayers, Focus::RoomItems, &mut self.notebook.page::<crate::tui::RoomPage>(Page::Room as usize).npcs.focus),
