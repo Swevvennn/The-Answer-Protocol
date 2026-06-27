@@ -400,7 +400,7 @@ impl FriendlyCli {
                         Focus::GroupCreate => {
                             self.popup = Some(crate::tui::Popup::input(
                                 "group_create",
-                                "Enter the group names",
+                                "Enter the group name",
                             ));
                             None
                         }
