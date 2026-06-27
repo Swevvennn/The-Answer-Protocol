@@ -231,10 +231,13 @@ impl Cli {
                 }
             }
             tap::messages::CommandKind::GroupCreate => {
-                if command.payload.is_empty() {
-                    tap::game::Group::create(game, username)
-                } else {
+                let mut name = String::new();
+                if command.payload.extract(&mut [
+                    tap::messages::PayloadExtractor::String(&mut name),
+                ]).is_err() {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
+                } else {
+                    tap::game::Group::create(game, username, &name)
                 }
             }
             tap::messages::CommandKind::GroupInvite => {

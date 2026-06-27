@@ -74,7 +74,7 @@ impl FriendlyCli {
             terminal.update(&mut *self, Self::render);
             match &self.popup {
                 Some(crate::tui::Popup::Input(popup)) if popup.id == "auth" && matches!(self.client.state, crate::network::ClientState::Authenticated) => self.popup = None,
-                None if !matches!(self.client.state, crate::network::ClientState::Authenticated) => self.popup = Some(crate::tui::Popup::input("auth", "CHOOSE YOUR USERNAME")),
+                None if !matches!(self.client.state, crate::network::ClientState::Authenticated) => self.popup = Some(crate::tui::Popup::input("auth", "Enter your username")),
                 _ => (),
             }
             if let Some(e) = tokio::select! {
@@ -199,9 +199,13 @@ impl FriendlyCli {
                 crate::cli::Event::Validate => {
                     let mut popup = self.popup.take().unwrap();
                     match &mut popup {
-                        crate::tui::Popup::Ask(popup) if popup.id == "exit" && let Some(selected) = popup.selected() && selected => {
-                            self.client.close();
-                            None
+                        crate::tui::Popup::Ask(popup) if let Some(selected) = popup.selected() && selected => match popup.id {
+                            "exit" => {
+                                self.client.close();
+                                None
+                            }
+                            "group_leave" => self.send_command(crate::messages::Command::new(crate::messages::CommandKind::GroupLeave)).await,
+                            _ => None,
                         }
                         crate::tui::Popup::Action(popup) if let Some(selected) = popup.buttons.selected() => match popup.id {
                             "invite" => match selected.as_str() {
@@ -274,12 +278,21 @@ impl FriendlyCli {
                             }).await,
                             _ => None,
                         }
-                        crate::tui::Popup::Input(popup) if popup.id == "auth" => self.send_command(crate::messages::Command {
-                            kind: crate::messages::CommandKind::Connect,
-                            payload: crate::messages::Payload::new(&[
-                                crate::messages::PayloadKind::String(popup.input.input.consume()),
-                            ]),
-                        }).await,
+                        crate::tui::Popup::Input(popup) => match popup.id {
+                            "auth" => self.send_command(crate::messages::Command {
+                                kind: crate::messages::CommandKind::Connect,
+                                payload: crate::messages::Payload::new(&[
+                                    crate::messages::PayloadKind::String(popup.input.input.consume()),
+                                ]),
+                            }).await,
+                            "group_create" => self.send_command(crate::messages::Command {
+                                kind: crate::messages::CommandKind::GroupCreate,
+                                payload: crate::messages::Payload::new(&[
+                                    crate::messages::PayloadKind::String(popup.input.input.consume()),
+                                ]),
+                            }).await,
+                            _ => None,
+                        }
                         _ => None,
                     }
                 }
@@ -384,9 +397,22 @@ impl FriendlyCli {
                             }
                             None
                         }
-                        Focus::GroupCreate => self.send_command(crate::messages::Command::new(crate::messages::CommandKind::GroupCreate)).await,
+                        Focus::GroupCreate => {
+                            self.popup = Some(crate::tui::Popup::input(
+                                "group_create",
+                                "Enter the group names",
+                            ));
+                            None
+                        }
                         Focus::GroupPlayers => None,
-                        Focus::GroupLeave => self.send_command(crate::messages::Command::new(crate::messages::CommandKind::GroupLeave)).await,
+                        Focus::GroupLeave => {
+                            self.popup = Some(crate::tui::Popup::ask(
+                                "group_leave",
+                                "Leave Group",
+                                "Do you really want to leave the group ?",
+                            ));
+                            None
+                        }
                         Focus::GroupInvitations => {
                             if let Some(group) = self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).invitations.selected() {
                                 self.popup = Some(crate::tui::Popup::action(

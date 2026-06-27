@@ -18,21 +18,24 @@ impl Group {
         }
     }
 
-    pub fn create(game: &mut crate::game::GameState, player: &String) -> crate::messages::Message {
+    pub fn create(game: &mut crate::game::GameState, player: &String, name: &String) -> crate::messages::Message {
+        if game.groups.contains_key(name) {
+            return crate::messages::Message::Error(crate::messages::Error::NameInUse);
+        }
         if let Some(player) = game.players.get_mut(player) {
             if !player.group.is_empty() {
                 return crate::messages::Message::Error(crate::messages::Error::AlreadyInGroup);
             }
-            player.group = player.username.clone();
+            player.group = name.clone();
         }
-        let mut group = Self::new(player);
+        let mut group = Self::new(name);
         group.players.insert(player.clone());
         game.groups.insert(group.name.clone(), group);
         crate::messages::Message::Response(crate::messages::Response {
             payload: crate::messages::Payload::new(&[
                 crate::messages::PayloadKind::KeyValue {
                     key: "group".to_string(),
-                    value: player.clone(),
+                    value: name.clone(),
                 },
             ]),
         })
@@ -104,38 +107,23 @@ impl Group {
     }
 
     pub async fn leave(game: &mut crate::game::GameState, player: &String) -> crate::messages::Message {
-        let mut name: String;
+        let group: String;
         if let Some(player) = game.players.get_mut(player) {
             if player.group.is_empty() {
                 return crate::messages::Message::Error(crate::messages::Error::NotInGroup);
             }
-            name = player.group.clone();
+            group = player.group.clone();
             player.group.clear();
         } else {
             return crate::messages::Message::Error(crate::messages::Error::ServerError);
         }
-        if game.groups[&name].players.len() == 1 {
-            game.groups.remove(&name);
-        } else {
-            let is_owner = name == *player;
-            if let Some(group) = game.groups.get_mut(&name) {
-                group.players.remove(player);
-                if is_owner && let Some(new_owner) = group.players.iter().next() {
-                    group.name = new_owner.clone();
-                }
-            }
-            if is_owner && let Some(group) = game.groups.remove(&name) {
-                name = group.name.clone();
-                for player in &group.players {
-                    if let Some(player) = game.players.get_mut(player) {
-                        player.group = name.clone();
-                    }
-                }
-                game.groups.insert(name.clone(), group);
-            }
+        if game.groups[&group].players.len() == 1 {
+            game.groups.remove(&group);
+        } else if let Some(group) = game.groups.get_mut(&group) {
+            group.players.remove(player);
         }
         crate::cli::Logger::event(
-            &name,
+            &group,
             game,
             &crate::messages::Event {
                 scope: crate::messages::EventScope::Group,
@@ -144,7 +132,7 @@ impl Group {
                     crate::messages::PayloadKind::String(player.clone()),
                 ]),
             },
-            |to| to.group == name,
+            |to| to.group == group,
         ).await;
         crate::messages::Message::Response(crate::messages::Response::default())
     }
