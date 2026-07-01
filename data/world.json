@@ -2,38 +2,157 @@
     "rooms": [
         {
             "id": "start",
-            "name": "Starting point",
-            "description": "blablabla",
+            "name": "Firstia",
+            "description": "Town of Origins",
             "exits": {
-                "north": "0",
-                "east": "2"
+                "north": "0"
             }
         },
         {
             "id": "0",
-            "name": "Room 0",
-            "description": "blablabla",
+            "name": "The Rampant Forest",
+            "description": "The Rampant Forest is a large forest between Firstia and Secondil",
             "exits": {
                 "south": "start",
-                "east": "1"
+				"north": "1"
             }
         },
         {
             "id": "1",
-            "name": "Room 1",
-            "description": "blablabla",
+            "name": "Secondil",
+            "description": "Outpost for Marsh Journeys",
             "exits": {
-                "south": "2",
-                "west": "0"
+                "south": "0",
+                "north": "2"
             }
         },
         {
             "id": "2",
-            "name": "Room 2",
-            "description": "blablabla",
+            "name": "Diremarsh Waste",
+            "description": "Diremarsh Waste is a swamp-laden wasteland that players must traverse from Secondile to Thirdrema.",
             "exits": {
-                "north": "1",
-                "west": "start"
+                "south": "1",
+                "north": "3"
+            }
+        },
+        {
+            "id": "3",
+            "name": "Thirdrema",
+            "description": "The big city",
+            "exits": {
+                "south": "2",
+				"west": "4",
+				"north": "6",
+				"east": "8"
+            }
+        },
+        {
+            "id": "4",
+            "name": "Prismatic Forest Grotto",
+            "description": "Prismatic Forest Grotto is a lush forest within a large cave system that leads from Thirdrema to Fourfolkshire.",
+            "exits": {
+                "east": "3",
+				"west": "5"
+            }
+        },
+        {
+            "id": "5",
+            "name": "Fourfolkshire",
+            "description": "The 4th city",
+            "exits": {
+                "east": "4",
+                "north": "10"
+            }
+        },
+        {
+            "id": "6",
+            "name": "Deathcrater Lake of Fortunes",
+            "description": "Deathcrater Lake of Fortunes is an extinct volcano connecting Thirdrema to Fivelle",
+            "exits": {
+                "south": "3",
+				"north": "7"
+            }
+        },
+        {
+            "id": "7",
+            "name": "Fivelle",
+            "description": "The 5th city",
+            "exits": {
+                "south": "6",
+                "west": "12",
+				"east": "13"
+            }
+        },
+        {
+            "id": "8",
+            "name": "The Iron Ruin of the Divinity",
+            "description": "The Iron Ruin of the Divinity is a set of ruins between Thirdrema and Sixenveldt",
+            "exits": {
+                "west": "3",
+				"east": "9"
+            }
+        },
+        {
+            "id": "9",
+            "name": "Sixenveldt",
+            "description": "The 6th city",
+            "exits": {
+                "west": "8",
+				"north": "15"
+            }
+        },
+        {
+            "id": "10",
+            "name": "Canyon of the Ancient Souls",
+            "description": "Canyon of the Ancient Souls is a rocky canyon connecting Fourfolkshire to Eighthold.",
+            "exits": {
+                "south": "5",
+				"north": "11"
+            }
+        },
+        {
+            "id": "11",
+            "name": "Eightold",
+            "description": "The 8th city",
+            "exits": {
+                "south": "10",
+				"east": "12"
+            }
+        },
+		{
+            "id": "12",
+            "name": "Ruins of the past glories",
+            "description": "The Ruins of Past Glories are a set of ruins between Eighthold and Fivelle.",
+            "exits": {
+                "west": "11",
+				"east": "7"
+            }
+        },
+        {
+            "id": "13",
+            "name": "Barren Darkruin",
+            "description": "Barren Darkruin is an ancient battlefield that sits between Fivelle and Neenesshill",
+            "exits": {
+                "west": "7",
+				"east": "14"
+            }
+        },
+        {
+            "id": "14",
+            "name": "Neenesshill",
+            "description": "The 9th city",
+            "exits": {
+                "west": "13",
+				"south": "15"
+            }
+        },
+		{
+            "id": "15",
+            "name": "Magnanimous Sanctuary",
+            "description": "Magnanimous Sanctuary is the mountainous area between Neenesshill and Sixenveldt.",
+            "exits": {
+                "south": "9",
+				"north": "14"
             }
         }
     ],
