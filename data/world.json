@@ -260,6 +260,11 @@
             "count": 1
         },
         {
+            "room": "2",
+            "item": "coin",
+            "count": 1
+        },
+        {
             "room": "start",
             "npc": "welcomer"
         },
