@@ -161,7 +161,12 @@
             "id": "coin",
             "name": "Coin",
             "description": "A gold coin"
-        }
+        },
+		{
+			"id": "rusty_sword",
+			"name": "Rusty sword",
+			"description": "A sword rustied by time"
+		}
     ],
     "npcs": [
         {
@@ -169,7 +174,7 @@
             "name": "Gagagougouk",
             "description": "Gagou gigouga gaga gik gouk",
             "data": {
-                "quests": ["welcome", "bring_coins"]
+                "quests": ["welcome"]
             }
         },
         {
@@ -177,9 +182,19 @@
             "name": "Welcomer",
             "description": "The first npc you will meet",
             "data": {
-                "dialogues": ["Welcome stranger!"]
+                "dialogues": ["Welcome stranger!", "Welcome to our world !"],
+				"quests": ["bring_coins"]
             }
-        }
+        },
+		{
+			"id": "old_swordsman",
+			"name": "Old Man",
+			"description": "An old man who wish that he kept his youth",
+			"data": {
+				"dialogues": ["I miss my strength...", "I miss my power...", "I miss my memories..."],
+				"quests": ["old_man_sword"]
+			}
+		}
     ],
     "quests": [
         {
@@ -201,12 +216,29 @@
             "name": "Bring coins",
             "description": "Bring me 3 coins",
             "requirements": ["welcome"],
-            "thanks": "Thank you for those 3 coins, here is one another",
+            "thanks": "Thank you for those 3 coins, here is another one",
             "task": {
                 "item": "coin",
                 "count": 3
             },
             "reward": [
+                "coin"
+            ]
+        },
+        {
+            "id": "old_man_sword",
+            "name": "The missed sword",
+            "description": "Bring me back my beloved sword !",
+            "thanks": "Ohh my dear... I missed you so much...",
+            "task": {
+                "item": "rusty_sword",
+                "count": 1
+            },
+            "reward": [
+                "coin",
+                "coin",
+                "coin",
+                "coin",
                 "coin"
             ]
         }
@@ -215,7 +247,17 @@
         {
             "room": "start",
             "item": "coin",
-            "count": 2
+            "count": 1
+        },
+        {
+            "room": "0",
+            "item": "coin",
+            "count": 1
+        },
+        {
+            "room": "1",
+            "item": "coin",
+            "count": 1
         },
         {
             "room": "start",
@@ -224,6 +266,15 @@
         {
             "room": "start",
             "npc": "gagagougouk"
+        },
+        {
+            "room": "1",
+            "npc": "old_swordsman"
+        },
+        {
+            "room": "13",
+            "item": "rusty_sword",
+			"count": 1
         }
     ]
 }
