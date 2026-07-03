@@ -5,154 +5,154 @@
             "name": "Firstia",
             "description": "Town of Origins",
             "exits": {
-                "north": "0"
+                "north": "rampant_forest"
             }
         },
         {
-            "id": "0",
+            "id": "rampant_forest",
             "name": "The Rampant Forest",
             "description": "The Rampant Forest is a large forest between Firstia and Secondil",
             "exits": {
                 "south": "start",
-				"north": "1"
+				"north": "secondil"
             }
         },
         {
-            "id": "1",
+            "id": "secondil",
             "name": "Secondil",
             "description": "Outpost for Marsh Journeys",
             "exits": {
-                "south": "0",
-                "north": "2"
+                "south": "rampant_forest",
+                "north": "diremarsh_waste"
             }
         },
         {
-            "id": "2",
+            "id": "diremarsh_waste",
             "name": "Diremarsh Waste",
             "description": "Diremarsh Waste is a swamp-laden wasteland that players must traverse from Secondile to Thirdrema.",
             "exits": {
-                "south": "1",
-                "north": "3"
+                "south": "secondil",
+                "north": "thirdrema"
             }
         },
         {
-            "id": "3",
+            "id": "thirdrema",
             "name": "Thirdrema",
             "description": "The big city",
             "exits": {
-                "south": "2",
-				"west": "4",
-				"north": "6",
-				"east": "8"
+                "south": "diremarsh_waste",
+				"west": "prismatic_forest_grotto",
+				"north": "deathcrater_lake_of_fortunes",
+				"east": "iron_ruin_divinity"
             }
         },
         {
-            "id": "4",
+            "id": "prismatic_forest_grotto",
             "name": "Prismatic Forest Grotto",
             "description": "Prismatic Forest Grotto is a lush forest within a large cave system that leads from Thirdrema to Fourfolkshire.",
             "exits": {
-                "east": "3",
-				"west": "5"
+                "east": "thirdrema",
+				"west": "fourfolkshire"
             }
         },
         {
-            "id": "5",
+            "id": "fourfolkshire",
             "name": "Fourfolkshire",
             "description": "The 4th city",
             "exits": {
-                "east": "4",
-                "north": "10"
+                "east": "prismatic_forest_grotto",
+                "north": "canyon_ancient_souls"
             }
         },
         {
-            "id": "6",
+            "id": "deathcrater_lake_of_fortunes",
             "name": "Deathcrater Lake of Fortunes",
             "description": "Deathcrater Lake of Fortunes is an extinct volcano connecting Thirdrema to Fivelle",
             "exits": {
-                "south": "3",
-				"north": "7"
+                "south": "thirdrema",
+				"north": "fivelle"
             }
         },
         {
-            "id": "7",
+            "id": "fivelle",
             "name": "Fivelle",
             "description": "The 5th city",
             "exits": {
-                "south": "6",
-                "west": "12",
-				"east": "13"
+                "south": "deathcrater_lake_of_fortunes",
+                "west": "ruins_past_glories",
+				"east": "barren_darkruin"
             }
         },
         {
-            "id": "8",
+            "id": "iron_ruin_divinity",
             "name": "The Iron Ruin of the Divinity",
             "description": "The Iron Ruin of the Divinity is a set of ruins between Thirdrema and Sixenveldt",
             "exits": {
-                "west": "3",
-				"east": "9"
+                "west": "thirdrema",
+				"east": "sixenveldt"
             }
         },
         {
-            "id": "9",
+            "id": "sixenveldt",
             "name": "Sixenveldt",
             "description": "The 6th city",
             "exits": {
-                "west": "8",
-				"north": "15"
+                "west": "iron_ruin_divinity",
+				"north": "magnanimous_sanctuary"
             }
         },
         {
-            "id": "10",
+            "id": "canyon_ancient_souls",
             "name": "Canyon of the Ancient Souls",
             "description": "Canyon of the Ancient Souls is a rocky canyon connecting Fourfolkshire to Eighthold.",
             "exits": {
-                "south": "5",
-				"north": "11"
+                "south": "fourfolkshire",
+				"north": "eightold"
             }
         },
         {
-            "id": "11",
+            "id": "eightold",
             "name": "Eightold",
             "description": "The 8th city",
             "exits": {
-                "south": "10",
-				"east": "12"
+                "south": "canyon_ancient_souls",
+				"east": "ruins_past_glories"
             }
         },
 		{
-            "id": "12",
+            "id": "ruins_past_glories",
             "name": "Ruins of the past glories",
             "description": "The Ruins of Past Glories are a set of ruins between Eighthold and Fivelle.",
             "exits": {
-                "west": "11",
-				"east": "7"
+                "west": "eightold",
+				"east": "fivelle"
             }
         },
         {
-            "id": "13",
+            "id": "barren_darkruin",
             "name": "Barren Darkruin",
             "description": "Barren Darkruin is an ancient battlefield that sits between Fivelle and Neenesshill",
             "exits": {
-                "west": "7",
-				"east": "14"
+                "west": "fivelle",
+				"east": "neenesshill"
             }
         },
         {
-            "id": "14",
+            "id": "neenesshill",
             "name": "Neenesshill",
             "description": "The 9th city",
             "exits": {
-                "west": "13",
-				"south": "15"
+                "west": "barren_darkruin",
+				"south": "magnanimous_sanctuary"
             }
         },
 		{
-            "id": "15",
+            "id": "magnanimous_sanctuary",
             "name": "Magnanimous Sanctuary",
             "description": "Magnanimous Sanctuary is the mountainous area between Neenesshill and Sixenveldt.",
             "exits": {
-                "south": "9",
-				"north": "14"
+                "south": "sixenveldt",
+				"north": "neenesshill"
             }
         }
     ],
@@ -169,14 +169,6 @@
 		}
     ],
     "npcs": [
-        {
-            "id": "gagagougouk",
-            "name": "Gagagougouk",
-            "description": "Gagou gigouga gaga gik gouk",
-            "data": {
-                "quests": ["welcome"]
-            }
-        },
         {
             "id": "welcomer",
             "name": "Welcomer",
@@ -198,24 +190,9 @@
     ],
     "quests": [
         {
-            "id": "welcome",
-            "name": "Welcome",
-            "description": "Go talk to the welcomer",
-            "autocomplete": true,
-            "task": {
-                "npc": "welcomer"
-            },
-            "reward": [
-                "coin",
-                "coin",
-                "coin"
-            ]
-        },
-        {
             "id": "bring_coins",
             "name": "Bring coins",
             "description": "Bring me 3 coins",
-            "requirements": ["welcome"],
             "thanks": "Thank you for those 3 coins, here is another one",
             "task": {
                 "item": "coin",
@@ -250,17 +227,17 @@
             "count": 1
         },
         {
-            "room": "0",
+            "room": "rampant_forest",
             "item": "coin",
             "count": 1
         },
         {
-            "room": "1",
+            "room": "secondil",
             "item": "coin",
             "count": 1
         },
         {
-            "room": "2",
+            "room": "diremarsh_waste",
             "item": "coin",
             "count": 1
         },
@@ -269,15 +246,11 @@
             "npc": "welcomer"
         },
         {
-            "room": "start",
-            "npc": "gagagougouk"
-        },
-        {
-            "room": "1",
+            "room": "secondil",
             "npc": "old_swordsman"
         },
         {
-            "room": "13",
+            "room": "barren_darkruin",
             "item": "rusty_sword",
 			"count": 1
         }

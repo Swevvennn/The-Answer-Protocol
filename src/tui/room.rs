@@ -91,6 +91,35 @@ struct Map;
 
 impl crate::tui::Widget for Map {
     fn render_with_data(&mut self, knowledge: &mut crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+        fn bound_rect(parent: &ratatui::layout::Rect, mut x: i32, mut y: i32, mut width: i32, mut height: i32) -> ratatui::layout::Rect {
+            if x >= parent.x as i32 + parent.width as i32 {
+                x = parent.x as i32;
+                width = 0;
+            } else {
+                if x < parent.x as i32 {
+                    width -= parent.x as i32 - x;
+                    x = parent.x as i32;
+                }
+                width = std::cmp::min(width, parent.width as i32 - (x - parent.x as i32));
+            }
+            if y >= parent.y as i32 + parent.height as i32 {
+                y = parent.y as i32;
+                height = 0;
+            } else {
+                if y < parent.y as i32 {
+                    height -= parent.y as i32 - y;
+                    y = parent.y as i32;
+                }
+                height = std::cmp::min(height, parent.height as i32 - (y - parent.y as i32));
+            }
+            ratatui::layout::Rect::new(
+                x as u16,
+                y as u16,
+                width as u16,
+                height as u16,
+            )
+        }
+
         if !knowledge.positions.contains_key(&knowledge.room.room.id) {
             return;
         }
@@ -121,23 +150,21 @@ impl crate::tui::Widget for Map {
                 let current = (pos.0 + x as i32, pos.1 + y as i32);
                 if knowledge.rpositions.contains_key(&current) {
                     let id = knowledge.rpositions[&current].clone();
-                    let mut p = ratatui::widgets::Paragraph::new(format!(
-                        "{}{}",
-                        "\n".repeat(((cell.1 - space.1 * 2 - 3) / 2 + !knowledge.positions.contains_key(&id) as u16) as usize),
-                        knowledge.room_name(&id).as_str()
-                    ))
-                        .centered();
+                    let mut p = ratatui::widgets::Paragraph::new(knowledge.room_name(&id).clone())
+                        .centered()
+                        .wrap(ratatui::widgets::Wrap { trim: true });
                     if knowledge.positions.contains_key(&id) {
                         p = p.block(ratatui::widgets::Block::bordered()
                             .padding(ratatui::widgets::Padding::horizontal(1))
                         );
                     }
                     p.render(
-                        ratatui::layout::Rect::new(
-                            begin.0 + cell.0 * x + space.0,
-                            begin.1 + cell.1 * y + space.1,
-                            cell.0 - space.0 * 2,
-                            cell.1 - space.1 * 2,
+                        bound_rect(
+                            &area,
+                            (begin.0 + cell.0 * x + space.0) as i32,
+                            (begin.1 + cell.1 * y + space.1) as i32,
+                            cell.0 as i32 - space.0 as i32 * 2,
+                            cell.1 as i32 - space.1 as i32 * 2,
                         ),
                         buf,
                     );
@@ -145,10 +172,11 @@ impl crate::tui::Widget for Map {
                 if x == 0 && knowledge.connections.contains(&((current.0 - 1, current.1), current)) {
                     ratatui::widgets::Paragraph::new("─".repeat(space.0 as usize * 2))
                         .render(
-                            ratatui::layout::Rect::new(
-                                begin.0 + cell.0 * x - space.0 * 2,
-                                begin.1 + cell.1 * y + (cell.1 - 1) / 2,
-                                space.0 * 2,
+                            bound_rect(
+                                &area,
+                                (begin.0 + cell.0 * x) as i32 - (space.0 * 2) as i32,
+                                (begin.1 + cell.1 * y + (cell.1 - 1) / 2) as i32,
+                                (space.0 * 2) as i32,
                                 1,
                             ),
                             buf,
@@ -157,11 +185,12 @@ impl crate::tui::Widget for Map {
                 if y == 0 && knowledge.connections.contains(&((current.0, current.1 - 1), current)) {
                     ratatui::widgets::Paragraph::new("│\n".repeat(space.1 as usize * 2))
                         .render(
-                            ratatui::layout::Rect::new(
-                                begin.0 + cell.0 * x + cell.0 / 2,
-                                begin.1 + cell.1 * y - space.1 * 2,
+                            bound_rect(
+                                &area,
+                                (begin.0 + cell.0 * x + cell.0 / 2) as i32,
+                                (begin.1 + cell.1 * y) as i32 - (space.1 * 2) as i32,
                                 1,
-                                space.1 * 2,
+                                (space.1 * 2) as i32,
                             ),
                             buf,
                         );
@@ -169,10 +198,11 @@ impl crate::tui::Widget for Map {
                 if knowledge.connections.contains(&(current, (current.0 + 1, current.1))) {
                     ratatui::widgets::Paragraph::new("─".repeat(space.0 as usize * 2))
                         .render(
-                            ratatui::layout::Rect::new(
-                                begin.0 + cell.0 * (x + 1) - space.0,
-                                begin.1 + cell.1 * y + (cell.1 - 1) / 2,
-                                space.0 * 2,
+                            bound_rect(
+                                &area,
+                                (begin.0 + cell.0 * (x + 1)) as i32 - space.0 as i32,
+                                (begin.1 + cell.1 * y + (cell.1 - 1) / 2) as i32,
+                                (space.0 * 2) as i32,
                                 1,
                             ),
                             buf,
@@ -181,11 +211,12 @@ impl crate::tui::Widget for Map {
                 if knowledge.connections.contains(&(current, (current.0, current.1 + 1))) {
                     ratatui::widgets::Paragraph::new("│\n".repeat(space.1 as usize * 2))
                         .render(
-                            ratatui::layout::Rect::new(
-                                begin.0 + cell.0 * x + cell.0 / 2,
-                                begin.1 + cell.1 * (y + 1) - space.1,
+                            bound_rect(
+                                &area,
+                                (begin.0 + cell.0 * x + cell.0 / 2) as i32,
+                                (begin.1 + cell.1 * (y + 1)) as i32 - space.1 as i32,
                                 1,
-                                space.1 * 2,
+                                (space.1 * 2) as i32,
                             ),
                             buf,
                         );
