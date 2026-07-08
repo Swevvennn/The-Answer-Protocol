@@ -319,7 +319,13 @@ impl Cli {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 }
             }
-            tap::messages::CommandKind::Status => tap::messages::Message::Error(tap::messages::Error::UnknownError),
+            tap::messages::CommandKind::Status => {
+                if command.payload.is_empty() {
+                    tap::game::Player::status(game, username)
+                } else {
+                    tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
+                }
+            }
             tap::messages::CommandKind::Take => {
                 let mut item = String::new();
                 if command.payload.extract(&mut [

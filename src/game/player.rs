@@ -1,22 +1,29 @@
 #[derive(
-    Default,
     serde::Deserialize,
     serde::Serialize,
 )]
+pub struct PlayerStatus
+{
+    pub hp: u32,
+}
+
+impl Default for PlayerStatus
+{
+    fn default() -> Self {
+        Self {
+            hp: 100,
+        }
+    }
+}
+
+#[derive(Default)]
 pub struct Player {
     pub username: String,
+    pub status: PlayerStatus,
     pub group: String,
-
-    #[serde(skip)]
     pub room: String,
-
-    #[serde(skip)]
     pub items: Vec<String>,
-
-    #[serde(skip)]
     pub quests: std::collections::HashMap<String, crate::game::QuestProgress>,
-
-    #[serde(skip)]
     pub writer: Option<std::sync::Arc<crate::network::Writer>>,
 }
 
@@ -24,6 +31,7 @@ impl Player {
     pub fn new(username: String, writer: std::sync::Arc<crate::network::Writer>) -> Self {
         Self {
             username,
+            status: PlayerStatus::default(),
             group: String::new(),
             room: String::new(),
             items: Vec::new(),
@@ -67,6 +75,14 @@ impl Player {
                 ]),
             })
         }
+    }
+
+    pub fn status(game: &crate::game::GameState, player: &String) -> crate::messages::Message {
+        crate::messages::Message::Response(crate::messages::Response {
+            payload: crate::messages::Payload::new(&[
+                crate::messages::PayloadKind::new_json(&game.players[player].status),
+            ]),
+        })
     }
 
     pub async fn chat(game: &crate::game::GameState, player: &String, scope: &crate::messages::EventScope, message: &str) -> crate::messages::Message {

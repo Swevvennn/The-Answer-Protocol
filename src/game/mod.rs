@@ -12,6 +12,7 @@ pub use npc::Npc;
 pub use npc::NpcKind;
 
 mod player;
+pub use player::PlayerStatus;
 pub use player::Player;
 
 mod quest;
