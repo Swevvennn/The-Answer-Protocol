@@ -72,6 +72,14 @@ impl FriendlyCli {
                 return None;
             }
             terminal.update(&mut *self, Self::render);
+            while self.client.is_open() && let Some(id) = self.knowledge.need() {
+                self.send_command(crate::messages::Command {
+                    kind: crate::messages::CommandKind::Describe,
+                    payload: crate::messages::Payload::new(&[
+                        crate::messages::PayloadKind::String(id),
+                    ]),
+                }).await;
+            }
             match &self.popup {
                 Some(crate::tui::Popup::Input(popup)) if popup.id == "auth" && matches!(self.client.state, crate::network::ClientState::Authenticated) => self.popup = None,
                 None if !matches!(self.client.state, crate::network::ClientState::Authenticated) => self.popup = Some(crate::tui::Popup::input("auth", "Enter your username")),
@@ -138,14 +146,6 @@ impl FriendlyCli {
                 } else {
                     self.popup = Some(crate::tui::Popup::error(e));
                 }
-            }
-            if self.client.is_open() && self.commands.is_empty() && let Some(id) = self.knowledge.need() {
-                self.send_command(crate::messages::Command {
-                    kind: crate::messages::CommandKind::Describe,
-                    payload: crate::messages::Payload::new(&[
-                        crate::messages::PayloadKind::String(id),
-                    ]),
-                }).await;
             }
         }
     }
@@ -600,6 +600,7 @@ impl FriendlyCli {
                     if response.payload.extract(&mut [
                         crate::messages::PayloadExtractor::Json(&mut quest),
                     ]).is_ok() {
+                        self.popup = Some(crate::tui::Popup::info("New quest", "New quest obtained!"));
                         self.send_command(crate::messages::Command::new(crate::messages::CommandKind::Quests)).await
                     } else {
                         Some(crate::messages::Error::UnexpectedServerResponse)

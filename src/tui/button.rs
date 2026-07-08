@@ -37,7 +37,6 @@ impl crate::tui::Widget for Button {
             } else {
                 ratatui::style::Style::default()
                     .fg(ratatui::style::Color::White)
-                    .bg(ratatui::style::Color::Black)
             }
         ));
         if self.centered {
