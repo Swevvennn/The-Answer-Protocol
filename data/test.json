@@ -39,7 +39,7 @@
             "description": "An enemy",
             "data": {
                 "hp": 50,
-                "attack": 10,
+                "attack": 50,
                 "armor": 2
             }
         }

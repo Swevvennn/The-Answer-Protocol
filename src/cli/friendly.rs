@@ -934,6 +934,7 @@ impl FriendlyCli {
                 if !event.payload.is_empty() {
                     return Some(crate::messages::Error::UnexpectedServerResponse);
                 }
+                self.knowledge.room.combat = crate::game::Combat::default();
                 self.commands.push(crate::messages::Command::new(crate::messages::CommandKind::Status));
                 self.commands.push(crate::messages::Command::new(crate::messages::CommandKind::Inventory));
                 self.commands.push(crate::messages::Command::new(crate::messages::CommandKind::Quests));

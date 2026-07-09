@@ -450,8 +450,8 @@ impl Player {
         }
         if game.players[player].status.hp == 0 {
             crate::game::RoomState::leave(game, player).await;
-            crate::game::RoomState::enter(game, player, &"start".to_string()).await;
-            Self::update_quests(game, player, "room", "start").await;
+            crate::game::RoomState::enter(game, player, &"room.start".to_string()).await;
+            Self::update_quests(game, player, "room", "room.start").await;
             if let Some(player) = game.players.get_mut(player) {
                 if let Some(room) = game.rooms.get_mut(&name) {
                     if !player.status.armor.is_empty() {
@@ -464,7 +464,7 @@ impl Player {
                     }
                     room.items.append(&mut player.items);
                 }
-                player.status.hp = std::cmp::min(1, player.status.max_hp / 2);
+                player.status.hp = std::cmp::max(1, player.status.max_hp / 2);
             }
             crate::cli::Logger::event(
                 player,
