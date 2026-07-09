@@ -156,6 +156,9 @@
             }
         }
     ],
+
+
+
     "items": [
         {
             "id": "coin",
@@ -166,8 +169,36 @@
 			"id": "rusty_sword",
 			"name": "Rusty sword",
 			"description": "A sword rustied by time"
+		},
+		{
+			"id": "rare_stone",
+			"name": "Rare Stone",
+			"description": "A unique stone found in the highest mountains"
+		},
+		{
+			"id": "forbidden_apple",
+			"name": "Forbidden Apple",
+			"description": "The Forbidden fruit, from the first sin committed ever"
+		},
+		{
+			"id": "magic_root",
+			"name": "Magic Root",
+			"description": "The root of a tree that appears to be special"
+		},
+		{
+			"id": "tombstone_fragment",
+			"name": "Tombstone Fragment",
+			"description": "The fragment of a divin tombstone, from a human"
+		},
+		{
+			"id": "rose",
+			"name": "Rose",
+			"description": "A rose that would look lovely in a bouquet"
 		}
     ],
+
+
+
     "npcs": [
         {
             "id": "welcomer",
@@ -186,8 +217,49 @@
 				"dialogues": ["I miss my strength...", "I miss my power...", "I miss my memories..."],
 				"quests": ["old_man_sword"]
 			}
+		},
+		{
+			"id": "old_highker",
+			"name": "Old Man",
+			"description": "An old man who wish that he kept his youth",
+			"data": {
+				"dialogues": ["I miss my climbs...", "I miss the pinnacles...", "I miss my memories..."],
+				"quests": ["old_man_stone"]
+			}
+		},
+		{
+			"id": "old_gourmet",
+			"name": "Old Man",
+			"description": "An old man who wish that he kept his youth",
+			"data": {
+				"dialogues": ["I miss its taste...", "I miss its scent...", "I miss my memories..."],
+				"quests": ["old_man_fruit"]
+			}
+		},
+		{
+			"id": "old_",
+			"name": "Old Man",
+			"description": "An old man who wish that he kept his youth",
+			"data": {
+				"dialogues": ["I miss my climbs...", "I miss the pinnacles...", "I miss my memories..."],
+				"quests": ["old_man_stone"]
+			}
+		},
+		{
+			"id": "old_woman",
+			"name": "Old Woman",
+			"description": "An old woman who used to know success with men",
+			"data": {
+				"dialogues": ["I used to be covered by gifts...",
+							  "I used to be covered by flowers...",
+							  "I would love a bouquet`..."],
+				"quests": ["the_bouquet"]
+			}
 		}
     ],
+
+
+
     "quests": [
         {
             "id": "bring_coins",
@@ -212,14 +284,70 @@
                 "count": 1
             },
             "reward": [
-                "coin",
-                "coin",
-                "coin",
-                "coin",
+				"rose",
+                "coin"
+            ]
+        },
+        {
+            "id": "old_man_stone",
+            "name": "The missed stone",
+            "description": "Bring me back a unique stone",
+            "thanks": "Ohh my lord... It's so gorgeous...",
+            "task": {
+                "item": "rare_stone",
+                "count": 1
+            },
+            "reward": [
+				"rose",
+                "coin"
+            ]
+        },
+        {
+            "id": "old_man_fruit",
+            "name": "The missed fruit",
+            "description": "Bring me back the forbidden fruit",
+            "thanks": "Ohh my god, what have you done...",
+            "task": {
+                "item": "forbidden_apple",
+                "count": 1
+            },
+            "reward": [
+				"rose",
+                "coin"
+            ]
+        },
+        {
+            "id": "old_man_",
+            "name": "The missed stone",
+            "description": "Bring me back a unique stone",
+            "thanks": "Ohh my lord... It's so gorgeous...",
+            "task": {
+                "item": "rare_stone",
+                "count": 1
+            },
+            "reward": [
+				"rose",
+                "coin"
+            ]
+        },
+        {
+            "id": "the_bouquet",
+            "name": "The bouquet",
+            "description": "Bring me back a lovely bouquet of roses",
+			"requirements": ["old_man_sword", "old_man_stone"],
+            "thanks": "I'm impressed by your devotion, but love is selfless...",
+            "task": {
+                "item": "rose",
+                "count": 7
+            },
+            "reward": [
                 "coin"
             ]
         }
     ],
+
+
+
     "spawns": [
         {
             "room": "start",
@@ -241,18 +369,42 @@
             "item": "coin",
             "count": 1
         },
+
         {
             "room": "start",
             "npc": "welcomer"
+        },
+		{
+            "room": "thirdrema",
+            "npc": "old_highker"
         },
         {
             "room": "secondil",
             "npc": "old_swordsman"
         },
+		{
+			"room": "start",
+            "npc": "old_woman"
+		},
+		{
+			"room": "fourfolkshire",
+            "npc": "old_gourmet"
+		},
+
         {
             "room": "barren_darkruin",
             "item": "rusty_sword",
 			"count": 1
-        }
+        },
+        {
+            "room": "magnanimous_sanctuary",
+            "item": "rare_stone",
+			"count": 1
+        },
+		{
+			"room": "prismatic_forest_grotto",
+			"item": "forbidden_apple",
+			"count": 1
+		}
     ]
 }
