@@ -289,6 +289,9 @@ impl GameState {
                     if !game.npcs.contains_key(&npc) {
                         return Err(std::io::Error::other(format!("there is no npc identified by '{npc}'")));
                     }
+                    if room == "room.start" && game.npcs[&npc].is_enemy() {
+                        return Err(std::io::Error::other("enemies cannot spawn in start room"));
+                    }
                     if let Some(room) = game.rooms.get_mut(&room) {
                         room.npcs.push(npc);
                     } else {
