@@ -8,7 +8,15 @@ impl crate::tui::ToListItem for crate::game::Npc {
     }
 
     fn to_item(&self, _knowledge: &crate::tui::Knowledge) -> ratatui::widgets::ListItem<'static> {
-        ratatui::widgets::ListItem::new(self.name.clone())
+        ratatui::widgets::ListItem::new(
+            ratatui::text::Span::styled(self.name.clone(), ratatui::style::Style::default().fg(
+                if self.is_enemy() {
+                    ratatui::style::Color::Red
+                } else {
+                    ratatui::style::Color::White
+                }
+            )),
+        )
     }
 }
 
@@ -188,5 +196,119 @@ impl crate::tui::PopupDescribeInfos for crate::game::Quest {
 
     fn title(&self) -> &str {
         &self.name
+    }
+}
+
+impl crate::tui::PopupDescribeInfos for crate::game::PlayerStatus {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn title(&self) -> &str {
+        &self.username
+    }
+}
+
+impl crate::tui::Widget for crate::game::PlayerStatus {
+    fn width(&self) -> u16 {
+        20
+    }
+
+    fn height(&self) -> u16 {
+        3
+    }
+
+    fn render_with_data(&mut self, knowledge: &mut crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+        let [top, middle, bottom] = ratatui::layout::Layout::vertical([
+            ratatui::layout::Constraint::Length(1),
+            ratatui::layout::Constraint::Length(1),
+            ratatui::layout::Constraint::Length(1),
+        ])
+            .areas(area);
+        ratatui::widgets::Paragraph::new(format!(
+            "HP: {}/{}",
+            self.hp,
+            self.max_hp,
+        ))
+            .render(top, buf);
+        ratatui::widgets::Paragraph::new(format!(
+            "Armor: {}",
+            if self.armor.is_empty() {
+                "None".to_string()
+            } else {
+                format!(
+                    "{} ({})",
+                    knowledge.item_name(&self.armor.clone()),
+                    if let Some(item) = knowledge.items.get(&self.armor) && let crate::game::ItemKind::Armor { armor } = &item.data {
+                        armor.to_string()
+                    } else {
+                        "?".to_string()
+                    }
+                )
+            },
+        ))
+            .render(middle, buf);
+        ratatui::widgets::Paragraph::new(format!(
+            "Weapon: {}",
+            if self.weapon.is_empty() {
+                "None".to_string()
+            } else {
+                format!(
+                    "{} ({})",
+                    knowledge.item_name(&self.weapon.clone()),
+                    if let Some(item) = knowledge.items.get(&self.weapon) && let crate::game::ItemKind::Weapon { damage } = &item.data {
+                        damage.to_string()
+                    } else {
+                        "?".to_string()
+                    }
+                )
+            },
+        ))
+            .render(bottom, buf);
+    }
+}
+
+impl crate::tui::PopupDescribeInfos for crate::game::EnemyStatus {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn title(&self) -> &str {
+        ""
+    }
+}
+
+impl crate::tui::Widget for crate::game::EnemyStatus {
+    fn width(&self) -> u16 {
+        20
+    }
+
+    fn height(&self) -> u16 {
+        3
+    }
+
+    fn render_with_data(&mut self, _knowledge: &mut crate::tui::Knowledge, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
+        let [top, middle, bottom] = ratatui::layout::Layout::vertical([
+            ratatui::layout::Constraint::Length(1),
+            ratatui::layout::Constraint::Length(1),
+            ratatui::layout::Constraint::Length(1),
+        ])
+            .areas(area);
+        ratatui::widgets::Paragraph::new(format!(
+            "HP: {}/{}",
+            self.hp,
+            self.max_hp,
+        ))
+            .render(top, buf);
+        ratatui::widgets::Paragraph::new(format!(
+            "Armor: {}",
+            self.armor,
+        ))
+            .render(middle, buf);
+        ratatui::widgets::Paragraph::new(format!(
+            "Attack: {}",
+            self.attack,
+        ))
+            .render(bottom, buf);
     }
 }

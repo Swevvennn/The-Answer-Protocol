@@ -1,0 +1,64 @@
+{
+    "rooms": [
+        {
+            "id": "start",
+            "name": "Firstia",
+            "description": "Town of Origins",
+            "exits": {
+                "north": "rampant_forest"
+            }
+        },
+        {
+            "id": "rampant_forest",
+            "name": "The Rampant Forest",
+            "description": "The Rampant Forest is a large forest between Firstia and Secondil",
+            "exits": {
+                "south": "start"
+            }
+        }
+    ],
+    "items": [
+        {
+            "id": "coin",
+            "name": "Coin",
+            "description": "A gold coin"
+        },
+		{
+			"id": "rusty_sword",
+			"name": "Rusty sword",
+			"description": "A sword rustied by time",
+            "data": {
+                "damage": 42
+            }
+		}
+    ],
+    "npcs": [
+        {
+            "id": "enemy",
+            "name": "Enemy",
+            "description": "An enemy",
+            "data": {
+                "hp": 50,
+                "attack": 10,
+                "armor": 2
+            }
+        }
+    ],
+    "quests": [],
+    "spawns": [
+        {
+            "room": "start",
+            "item": "coin",
+            "count": 1
+        },
+        {
+            "room": "start",
+            "item": "rusty_sword",
+            "count": 1
+        },
+        {
+            "room": "start",
+            "npc": "enemy"
+        }
+    ]
+}

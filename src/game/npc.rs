@@ -10,6 +10,8 @@ use rand::seq::IndexedRandom;
 pub enum NpcKind {
     Enemy {
         hp: u32,
+        attack: u32,
+        armor: u32,
     },
     Neutral {
         #[serde(default)]
@@ -19,16 +21,12 @@ pub enum NpcKind {
         #[serde(default)]
         #[serde(skip_serializing_if = "Vec::is_empty")]
         quests: Vec<String>,
-
-        // #[serde(default)]
-        // #[serde(skip_serializing_if = "Vec::is_empty")]
-        // trades: Vec<crate::game::Trade>,
     },
 }
 
 impl NpcKind {
     pub fn is_enemy(&self) -> bool {
-        matches!(self, Self::Enemy { hp: _ })
+        matches!(self, Self::Enemy { hp: _, attack: _, armor: _ })
     }
 }
 
@@ -56,7 +54,6 @@ impl Npc {
             if let NpcKind::Neutral {
                 dialogues,
                 quests,
-                // trades: _,
             } = &npc.data {
                 let mut event = None;
                 if let Some(player) = game.players.get_mut(player) {
@@ -120,7 +117,6 @@ impl Npc {
             if let NpcKind::Neutral {
                 dialogues: _,
                 quests,
-                // trades: _,
             } = &npc.data {
                 if let Some(player) = game.players.get_mut(player) {
                     let mut ok = false;

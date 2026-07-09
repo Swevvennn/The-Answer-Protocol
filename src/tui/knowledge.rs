@@ -59,7 +59,9 @@ impl Knowledge {
             }
         }
         self.player.room = room.room.id.clone();
+        let combat = self.room.combat.clone();
         self.room = room;
+        self.room.combat = combat;
     }
 
     pub fn change_group(&mut self, group: Option<crate::game::Group>) {

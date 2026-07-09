@@ -10,7 +10,9 @@ pub trait ToListItem: Sized {
             .collect()
     }
 
-    fn update_item(knowledge: &crate::tui::Knowledge, s: &str) -> Option<Self>;
+    fn update_item(_knowledge: &crate::tui::Knowledge, _s: &str) -> Option<Self> {
+        None
+    }
 
     fn to_item(&self, knowledge: &crate::tui::Knowledge) -> ratatui::widgets::ListItem<'static>;
 }
@@ -49,6 +51,10 @@ impl<T: ToListItem> List<T> {
             state: ratatui::widgets::ListState::default(),
             scrollbar: crate::tui::Scrollbar::default(),
         }
+    }
+
+    pub fn index(&self) -> Option<usize> {
+        self.state.selected()
     }
 
     pub fn selected(&self) -> Option<&T> {

@@ -5,6 +5,8 @@ use crate::tui::ToListItem;
 pub struct RoomPage {
     pub refresh: crate::tui::Button,
     pub move_to: crate::tui::Button,
+    pub fighters: crate::tui::List<String>,
+    pub enemies: crate::tui::List<crate::game::Npc>,
     pub players: crate::tui::List<String>,
     pub npcs: crate::tui::List<crate::game::Npc>,
     pub items: crate::tui::List<crate::game::Item>,
@@ -12,6 +14,18 @@ pub struct RoomPage {
 
 impl RoomPage {
     pub fn update(&mut self, knowledge: &crate::tui::Knowledge) {
+        self.fighters.items = String::items_from_iter(
+            knowledge.room.combat.players
+                .iter()
+                .map(|i| i.username.clone())
+                .collect::<Vec<String>>()
+        );
+        self.enemies.items = crate::game::Npc::items_from_iter(
+            knowledge.room.combat.enemies
+                .iter()
+                .map(|i| i.id.clone())
+                .collect::<Vec<String>>()
+        );
         self.players.items = String::items_from_iter(&knowledge.room.players);
         self.npcs.items = crate::game::Npc::items_from_iter(&knowledge.room.npcs);
         self.items.items = crate::game::Item::items_from_iter(&knowledge.room.items);
@@ -23,6 +37,8 @@ impl Default for RoomPage {
         Self {
             refresh: crate::tui::Button::new("Refresh"),
             move_to: crate::tui::Button::new("Move"),
+            fighters: crate::tui::List::new("Fighters"),
+            enemies: crate::tui::List::new("Enemies"),
             players: crate::tui::List::new("Players"),
             npcs: crate::tui::List::new("NPCs"),
             items: crate::tui::List::new("Items"),
@@ -55,7 +71,26 @@ impl crate::tui::Widget for RoomPage {
             ratatui::layout::Constraint::Fill(1),
         ])
             .areas(area);
-        Map.render_with_data(knowledge, middle, buf);
+        if knowledge.room.combat.index(&knowledge.player.username).is_some() {
+            let [top, _, bottom] = ratatui::layout::Layout::vertical([
+                ratatui::layout::Constraint::Length(1),
+                ratatui::layout::Constraint::Length(1),
+                ratatui::layout::Constraint::Fill(1),
+            ])
+                .areas(middle);
+            ratatui::widgets::Paragraph::new("Combat")
+                .centered()
+                .render(top, buf);
+            let [left, right] = ratatui::layout::Layout::horizontal([
+                ratatui::layout::Constraint::Fill(1),
+                ratatui::layout::Constraint::Fill(1),
+            ])
+                .areas(bottom);
+            self.fighters.render_with_data(knowledge, left, buf);
+            self.enemies.render_with_data(knowledge, right, buf);
+        } else {
+            Map.render_with_data(knowledge, middle, buf);
+        }
         ratatui::widgets::Clear.render(c0, buf);
         ratatui::widgets::Clear.render(top, buf);
         ratatui::widgets::Clear.render(c1, buf);
@@ -73,8 +108,10 @@ impl crate::tui::Widget for RoomPage {
         ))
             .centered()
             .render(desc, buf);
-        self.move_to.centered = true;
-        self.move_to.render(move_to, buf);
+        if knowledge.room.combat.index(&knowledge.player.username).is_none() {
+            self.move_to.centered = true;
+            self.move_to.render(move_to, buf);
+        }
         let [left, middle, right] = ratatui::layout::Layout::horizontal([
             ratatui::layout::Constraint::Fill(1),
             ratatui::layout::Constraint::Fill(1),

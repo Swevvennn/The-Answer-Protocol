@@ -9,8 +9,10 @@ pub enum CommandKind {
     Attack,
     Chat,
     Connect,
+    Consume,
     Describe,
     Drop,
+    Equip,
     GroupDescribe,
     GroupCreate,
     GroupInvite,
@@ -25,6 +27,7 @@ pub enum CommandKind {
     Status,
     Take,
     Talk,
+    Unequip,
     Who,
 }
 
@@ -45,8 +48,10 @@ impl std::fmt::Display for CommandKind {
             Self::Attack => write!(f, "ATTACK"),
             Self::Chat => write!(f, "CHAT"),
             Self::Connect => write!(f, "CONNECT"),
+            Self::Consume => write!(f, "CONSUME"),
             Self::Describe => write!(f, "DESCRIBE"),
             Self::Drop => write!(f, "DROP"),
+            Self::Equip => write!(f, "EQUIP"),
             Self::GroupDescribe => write!(f, "GROUP DESCRIBE"),
             Self::GroupCreate => write!(f, "GROUP CREATE"),
             Self::GroupInvite => write!(f, "GROUP INVITE"),
@@ -61,6 +66,7 @@ impl std::fmt::Display for CommandKind {
             Self::Status => write!(f, "STATUS"),
             Self::Take => write!(f, "TAKE"),
             Self::Talk => write!(f, "TALK"),
+            Self::Unequip => write!(f, "UNEQUIP"),
             Self::Who => write!(f, "WHO"),
         }
     }

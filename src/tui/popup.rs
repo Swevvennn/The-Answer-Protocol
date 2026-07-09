@@ -23,7 +23,7 @@ trait PopupWidget: crate::tui::Widget {
         ratatui::widgets::Clear
             .render(area, buf);
         let block = ratatui::widgets::Block::bordered()
-            .title(format!(" {} ", self.title()))
+            .title(if self.title().is_empty() { String::new() } else { format!(" {} ", self.title()) })
             .padding(ratatui::widgets::Padding::symmetric(2, 1));
         let inner = block.inner(area);
         block.render(area, buf);

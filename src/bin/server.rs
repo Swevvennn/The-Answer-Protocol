@@ -180,14 +180,23 @@ impl Cli {
                     tap::game::Player::abandon_quest(game, username, &quest)
                 }
             }
-            tap::messages::CommandKind::Attack => tap::messages::Message::Error(tap::messages::Error::UnknownError),
+            tap::messages::CommandKind::Attack => {
+                let mut npc = String::new();
+                if command.payload.extract(&mut [
+                    tap::messages::PayloadExtractor::String(&mut npc),
+                ]).is_err() {
+                    tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
+                } else {
+                    tap::game::Player::attack(game, username, &npc).await
+                }
+            }
             tap::messages::CommandKind::Chat => {
                 let mut scope = tap::messages::EventScope::Global;
                 let mut message = String::new();
                 if command.payload.extract(&mut [
                     tap::messages::PayloadExtractor::Keyword(&mut scope),
                     tap::messages::PayloadExtractor::String(&mut message),
-                ]).is_err() || matches!(scope, tap::messages::EventScope::Stats) {
+                ]).is_err() || !matches!(scope, tap::messages::EventScope::Global | tap::messages::EventScope::Group | tap::messages::EventScope::Room) {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 } else {
                     tap::game::Player::chat(game, username, &scope, &message).await
@@ -201,6 +210,16 @@ impl Cli {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 } else {
                     tap::game::Player::connect(game, client, username).await
+                }
+            }
+            tap::messages::CommandKind::Consume => {
+                let mut item = String::new();
+                if command.payload.extract(&mut [
+                    tap::messages::PayloadExtractor::String(&mut item),
+                ]).is_err() {
+                    tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
+                } else {
+                    tap::game::Player::consume(game, username, &item).await
                 }
             }
             tap::messages::CommandKind::Describe => {
@@ -221,6 +240,16 @@ impl Cli {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 } else {
                     tap::game::Player::drop(game, username, &item).await
+                }
+            }
+            tap::messages::CommandKind::Equip => {
+                let mut item = String::new();
+                if command.payload.extract(&mut [
+                    tap::messages::PayloadExtractor::String(&mut item),
+                ]).is_err() {
+                    tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
+                } else {
+                    tap::game::Player::equip(game, username, &item).await
                 }
             }
             tap::messages::CommandKind::GroupDescribe => {
@@ -344,6 +373,16 @@ impl Cli {
                     tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
                 } else {
                     tap::game::Npc::talk(game, username, &npc).await
+                }
+            }
+            tap::messages::CommandKind::Unequip => {
+                let mut item = String::new();
+                if command.payload.extract(&mut [
+                    tap::messages::PayloadExtractor::String(&mut item),
+                ]).is_err() {
+                    tap::messages::Message::Error(tap::messages::Error::InvalidArguments)
+                } else {
+                    tap::game::Player::unequip(game, username, &item).await
                 }
             }
             tap::messages::CommandKind::Who => {

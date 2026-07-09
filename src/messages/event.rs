@@ -45,6 +45,9 @@ impl std::fmt::Display for EventScope {
 )]
 pub enum EventKind {
     Chat,
+    CombatEnd,
+    CombatStats,
+    Die,
     Invite,
     Join,
     Leave,
@@ -58,6 +61,9 @@ impl std::fmt::Display for EventKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Chat => write!(f, "CHAT"),
+            Self::CombatEnd => write!(f, "COMBAT END"),
+            Self::CombatStats => write!(f, "COMBAT STATS"),
+            Self::Die => write!(f, "DIE"),
             Self::Invite => write!(f, "INVITE"),
             Self::Join => write!(f, "JOIN"),
             Self::Leave => write!(f, "LEAVE"),

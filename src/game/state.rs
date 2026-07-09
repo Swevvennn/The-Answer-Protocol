@@ -191,7 +191,6 @@ impl GameState {
             if let crate::game::NpcKind::Neutral {
                 dialogues: _,
                 quests,
-                // trades: _,
             } = &mut npc.data {
                 for quest in quests {
                     *quest = format!("quest.{quest}");

@@ -1,3 +1,7 @@
+mod combat;
+pub use combat::Combat;
+pub use combat::EnemyStatus;
+
 mod direction;
 pub use direction::Direction;
 
@@ -6,14 +10,15 @@ pub use group::Group;
 
 mod item;
 pub use item::Item;
+pub use item::ItemKind;
 
 mod npc;
 pub use npc::Npc;
 pub use npc::NpcKind;
 
 mod player;
-pub use player::PlayerStatus;
 pub use player::Player;
+pub use player::PlayerStatus;
 
 mod quest;
 pub use quest::Quest;
@@ -28,6 +33,3 @@ pub use room::RoomState;
 mod state;
 pub use state::GameState;
 pub use state::WorldData;
-
-// mod trade;
-// pub use trade::Trade;
