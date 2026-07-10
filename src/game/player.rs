@@ -421,25 +421,23 @@ impl Player {
                                 break;
                             }
                         }
-                    } else {
-                        if !game.players[player].group.is_empty() && game.players[player].group == game.players[&room.combat.players[0].username].group {
-                            return crate::messages::Message::Error(crate::messages::Error::NotInGroup);
-                        } else {
-                            if room.combat.players.is_empty() {
-                                for npc in &room.npcs {
-                                    if let crate::game::NpcKind::Enemy { hp, attack, armor } = &game.npcs[npc].data {
-                                        room.combat.enemies.push(crate::game::EnemyStatus {
-                                            id: npc.clone(),
-                                            hp: *hp,
-                                            max_hp: *hp,
-                                            armor: *armor,
-                                            attack: *attack,
-                                        });
-                                    }
-                                }
+                    } else if room.combat.players.is_empty() {
+                        for npc in &room.npcs {
+                            if let crate::game::NpcKind::Enemy { hp, attack, armor } = &game.npcs[npc].data {
+                                room.combat.enemies.push(crate::game::EnemyStatus {
+                                    id: npc.clone(),
+                                    hp: *hp,
+                                    max_hp: *hp,
+                                    armor: *armor,
+                                    attack: *attack,
+                                });
                             }
-                            room.combat.players.push(game.players[player].status.clone());
                         }
+                        room.combat.players.push(game.players[player].status.clone());
+                    } else if game.players[player].group.is_empty() || game.players[player].group != game.players[&room.combat.players[0].username].group {
+                        return crate::messages::Message::Error(crate::messages::Error::NotInGroup);
+                    } else {
+                        room.combat.players.push(game.players[player].status.clone());
                     }
                 } else {
                     return crate::messages::Message::Error(crate::messages::Error::NPCNotHostile);

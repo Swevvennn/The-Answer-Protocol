@@ -141,6 +141,7 @@ impl FriendlyCli {
                             Ok(message) => {
                                 match message {
                                     crate::messages::Message::Error(error) => {
+                                        self.waiter.end();
                                         self.commands.remove(0);
                                         Some(error)
                                     },
