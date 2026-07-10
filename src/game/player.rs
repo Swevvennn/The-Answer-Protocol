@@ -385,6 +385,7 @@ impl Player {
 
     pub async fn attack(game: &mut crate::game::GameState, player: &String, npc: &String) -> crate::messages::Message {
         let name: String;
+        let mut killed = false;
         if let Some(room) = game.rooms.get_mut(&game.players[player].room) {
             name = room.room.id.clone();
             if room.npcs.contains(npc) {
@@ -400,6 +401,7 @@ impl Player {
                                     }.saturating_sub(room.combat.enemies[i].armor)
                                 );
                                 if room.combat.enemies[i].hp == 0 {
+                                    killed = true;
                                     room.combat.enemies.remove(i);
                                     room.dead_npcs.push(room.npcs.remove(room.npcs.iter().position(|i| i == npc).unwrap()));
                                     break;
@@ -447,6 +449,11 @@ impl Player {
             }
         } else {
             return crate::messages::Message::Error(crate::messages::Error::ServerError);
+        }
+        if killed {
+            for player in &game.rooms[&name].players.clone() {
+                Self::update_quests(game, player, "kill", &npc).await;
+            }
         }
         if game.players[player].status.hp == 0 {
             crate::game::RoomState::leave(game, player).await;
