@@ -205,131 +205,125 @@ impl FriendlyCli {
 
     fn process_input(&mut self, event: crate::cli::Event) {
         if self.popup.is_some() {
-            match event {
-                crate::cli::Event::Validate => {
-                    let mut popup = self.popup.take().unwrap();
-                    match &mut popup {
-                        crate::tui::Popup::Ask(popup) if let Some(selected) = popup.selected() && selected => match popup.id {
-                            "exit" => self.client.close(),
-                            "group_leave" => self.commands.push(crate::messages::Command::new(crate::messages::CommandKind::GroupLeave)),
-                            _ => (),
-                        }
-                        crate::tui::Popup::Action(popup) if let Some(selected) = popup.buttons.selected() => match popup.id {
-                            "invite" => match selected.as_str() {
-                                "Dismiss" => {
-                                    self.knowledge.invitations.remove(&popup.title);
-                                    self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).update(&self.knowledge);
-                                }
-                                "Accept" => {
-                                    self.knowledge.invitations.remove(&popup.title);
-                                    self.commands.push(crate::messages::Command {
-                                        kind: crate::messages::CommandKind::GroupJoin,
-                                        payload: crate::messages::Payload::new(&[
-                                            crate::messages::PayloadKind::String(popup.title.clone()),
-                                        ]),
-                                    });
-                                }
-                                _ => (),
-                            }
-                            "move" if let Ok(direction) = crate::game::Direction::from_str(selected) => self.commands.push(crate::messages::Command {
-                                kind: crate::messages::CommandKind::Move,
-                                payload: crate::messages::Payload::new(&[
-                                    crate::messages::PayloadKind::String(direction.to_string()),
-                                ]),
-                            }),
-                            "player" if selected == "Invite" => self.commands.push(crate::messages::Command {
-                                kind: crate::messages::CommandKind::GroupInvite,
-                                payload: crate::messages::Payload::new(&[
-                                    crate::messages::PayloadKind::String(popup.title.clone()),
-                                ]),
-                            }),
-                            _ => (),
-                        }
-                        crate::tui::Popup::Describe(popup) if let Some(selected) = popup.buttons.selected() => match popup.id {
-                            "enemy_status" => match selected.as_str() {
-                                "Attack" => self.commands.push(crate::messages::Command {
-                                    kind: crate::messages::CommandKind::Attack,
-                                    payload: crate::messages::Payload::new(&[
-                                        crate::messages::PayloadKind::String(popup.data::<crate::game::EnemyStatus>().id.clone()),
-                                    ]),
-                                }),
-                                _ => (),
-                            }
-                            "item" => match selected.as_str() {
-                                "Consume" => self.commands.push(crate::messages::Command {
-                                    kind: crate::messages::CommandKind::Consume,
-                                    payload: crate::messages::Payload::new(&[
-                                        crate::messages::PayloadKind::String(popup.data::<crate::game::Item>().id.clone()),
-                                    ]),
-                                }),
-                                "Drop" => self.commands.push(crate::messages::Command {
-                                    kind: crate::messages::CommandKind::Drop,
-                                    payload: crate::messages::Payload::new(&[
-                                        crate::messages::PayloadKind::String(popup.data::<crate::game::Item>().id.clone()),
-                                    ]),
-                                }),
-                                "Equip" => self.commands.push(crate::messages::Command {
-                                    kind: crate::messages::CommandKind::Equip,
-                                    payload: crate::messages::Payload::new(&[
-                                        crate::messages::PayloadKind::String(popup.data::<crate::game::Item>().id.clone()),
-                                    ]),
-                                }),
-                                "Take" => self.commands.push(crate::messages::Command {
-                                    kind: crate::messages::CommandKind::Take,
-                                    payload: crate::messages::Payload::new(&[
-                                        crate::messages::PayloadKind::String(popup.data::<crate::game::Item>().id.clone()),
-                                    ]),
-                                }),
-                                _ => (),
-                            }
-                            "npc" => match selected.as_str() {
-                                "Attack" => self.commands.push(crate::messages::Command {
-                                    kind: crate::messages::CommandKind::Attack,
-                                    payload: crate::messages::Payload::new(&[
-                                        crate::messages::PayloadKind::String(popup.data::<crate::game::Npc>().id.clone()),
-                                    ]),
-                                }),
-                                "Talk" => self.commands.push(crate::messages::Command {
-                                    kind: crate::messages::CommandKind::Talk,
-                                    payload: crate::messages::Payload::new(&[
-                                        crate::messages::PayloadKind::String(popup.data::<crate::game::Npc>().id.clone()),
-                                    ]),
-                                }),
-                                "Ask for a quest" => self.commands.push(crate::messages::Command {
-                                    kind: crate::messages::CommandKind::Quest,
-                                    payload: crate::messages::Payload::new(&[
-                                        crate::messages::PayloadKind::String(popup.data::<crate::game::Npc>().id.clone()),
-                                    ]),
-                                }),
-                                _ => (),
-                            }
-                            "quest" if selected == "Abandon" => self.commands.push(crate::messages::Command {
-                                kind: crate::messages::CommandKind::AbandonQuest,
-                                payload: crate::messages::Payload::new(&[
-                                    crate::messages::PayloadKind::String(popup.data::<crate::game::Quest>().id.clone()),
-                                ]),
-                            }),
-                            _ => (),
-                        }
-                        crate::tui::Popup::Input(popup) => match popup.id {
-                            "auth" => self.commands.push(crate::messages::Command {
-                                kind: crate::messages::CommandKind::Connect,
-                                payload: crate::messages::Payload::new(&[
-                                    crate::messages::PayloadKind::String(popup.input.input.consume()),
-                                ]),
-                            }),
-                            "group_create" => self.commands.push(crate::messages::Command {
-                                kind: crate::messages::CommandKind::GroupCreate,
-                                payload: crate::messages::Payload::new(&[
-                                    crate::messages::PayloadKind::String(popup.input.input.consume()),
-                                ]),
-                            }),
-                            _ => (),
-                        }
+            if let crate::cli::Event::Validate = event {
+                let mut popup = self.popup.take().unwrap();
+                match &mut popup {
+                    crate::tui::Popup::Ask(popup) if let Some(selected) = popup.selected() && selected => match popup.id {
+                        "exit" => self.client.close(),
+                        "group_leave" => self.commands.push(crate::messages::Command::new(crate::messages::CommandKind::GroupLeave)),
                         _ => (),
                     }
+                    crate::tui::Popup::Action(popup) if let Some(selected) = popup.buttons.selected() => match popup.id {
+                        "invite" => match selected.as_str() {
+                            "Dismiss" => {
+                                self.knowledge.invitations.remove(&popup.title);
+                                self.notebook.page::<crate::tui::GroupPage>(Page::Group as usize).update(&self.knowledge);
+                            }
+                            "Accept" => {
+                                self.knowledge.invitations.remove(&popup.title);
+                                self.commands.push(crate::messages::Command {
+                                    kind: crate::messages::CommandKind::GroupJoin,
+                                    payload: crate::messages::Payload::new(&[
+                                        crate::messages::PayloadKind::String(popup.title.clone()),
+                                    ]),
+                                });
+                            }
+                            _ => (),
+                        }
+                        "move" if let Ok(direction) = crate::game::Direction::from_str(selected) => self.commands.push(crate::messages::Command {
+                            kind: crate::messages::CommandKind::Move,
+                            payload: crate::messages::Payload::new(&[
+                                crate::messages::PayloadKind::String(direction.to_string()),
+                            ]),
+                        }),
+                        "player" if selected == "Invite" => self.commands.push(crate::messages::Command {
+                            kind: crate::messages::CommandKind::GroupInvite,
+                            payload: crate::messages::Payload::new(&[
+                                crate::messages::PayloadKind::String(popup.title.clone()),
+                            ]),
+                        }),
+                        _ => (),
+                    }
+                    crate::tui::Popup::Describe(popup) if let Some(selected) = popup.buttons.selected() => match popup.id {
+                        "enemy_status" if selected == "Attack" =>  self.commands.push(crate::messages::Command {
+                            kind: crate::messages::CommandKind::Attack,
+                            payload: crate::messages::Payload::new(&[
+                                crate::messages::PayloadKind::String(popup.data::<crate::game::EnemyStatus>().id.clone()),
+                            ]),
+                        }),
+                        "item" => match selected.as_str() {
+                            "Consume" => self.commands.push(crate::messages::Command {
+                                kind: crate::messages::CommandKind::Consume,
+                                payload: crate::messages::Payload::new(&[
+                                    crate::messages::PayloadKind::String(popup.data::<crate::game::Item>().id.clone()),
+                                ]),
+                            }),
+                            "Drop" => self.commands.push(crate::messages::Command {
+                                kind: crate::messages::CommandKind::Drop,
+                                payload: crate::messages::Payload::new(&[
+                                    crate::messages::PayloadKind::String(popup.data::<crate::game::Item>().id.clone()),
+                                ]),
+                            }),
+                            "Equip" => self.commands.push(crate::messages::Command {
+                                kind: crate::messages::CommandKind::Equip,
+                                payload: crate::messages::Payload::new(&[
+                                    crate::messages::PayloadKind::String(popup.data::<crate::game::Item>().id.clone()),
+                                ]),
+                            }),
+                            "Take" => self.commands.push(crate::messages::Command {
+                                kind: crate::messages::CommandKind::Take,
+                                payload: crate::messages::Payload::new(&[
+                                    crate::messages::PayloadKind::String(popup.data::<crate::game::Item>().id.clone()),
+                                ]),
+                            }),
+                            _ => (),
+                        }
+                        "npc" => match selected.as_str() {
+                            "Attack" => self.commands.push(crate::messages::Command {
+                                kind: crate::messages::CommandKind::Attack,
+                                payload: crate::messages::Payload::new(&[
+                                    crate::messages::PayloadKind::String(popup.data::<crate::game::Npc>().id.clone()),
+                                ]),
+                            }),
+                            "Talk" => self.commands.push(crate::messages::Command {
+                                kind: crate::messages::CommandKind::Talk,
+                                payload: crate::messages::Payload::new(&[
+                                    crate::messages::PayloadKind::String(popup.data::<crate::game::Npc>().id.clone()),
+                                ]),
+                            }),
+                            "Ask for a quest" => self.commands.push(crate::messages::Command {
+                                kind: crate::messages::CommandKind::Quest,
+                                payload: crate::messages::Payload::new(&[
+                                    crate::messages::PayloadKind::String(popup.data::<crate::game::Npc>().id.clone()),
+                                ]),
+                            }),
+                            _ => (),
+                        }
+                        "quest" if selected == "Abandon" => self.commands.push(crate::messages::Command {
+                            kind: crate::messages::CommandKind::AbandonQuest,
+                            payload: crate::messages::Payload::new(&[
+                                crate::messages::PayloadKind::String(popup.data::<crate::game::Quest>().id.clone()),
+                            ]),
+                        }),
+                        _ => (),
+                    }
+                    crate::tui::Popup::Input(popup) => match popup.id {
+                        "auth" => self.commands.push(crate::messages::Command {
+                            kind: crate::messages::CommandKind::Connect,
+                            payload: crate::messages::Payload::new(&[
+                                crate::messages::PayloadKind::String(popup.input.input.consume()),
+                            ]),
+                        }),
+                        "group_create" => self.commands.push(crate::messages::Command {
+                            kind: crate::messages::CommandKind::GroupCreate,
+                            payload: crate::messages::Payload::new(&[
+                                crate::messages::PayloadKind::String(popup.input.input.consume()),
+                            ]),
+                        }),
+                        _ => (),
+                    }
+                    _ => (),
                 }
-                _ => (),
             }
         } else {
             match event {

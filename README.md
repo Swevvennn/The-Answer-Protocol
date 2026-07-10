@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by monsmond, tbaricau*
+*This project has been created as part of the 42 curriculum by mosmond, tbaricau*
 
 # TAP
 
@@ -18,6 +18,10 @@ The goal of this project is to create a MUD (Muti-User Dungeon) whether the comm
 
 ## Instructions
 
+You must install Rust and Cargo before trying to build this project.
+<https://doc.rust-lang.org/cargo/getting-started/installation.html>
+
+
 Compile the project
 ```Shell
 cargo build --release
@@ -26,6 +30,11 @@ cargo build --release
 Run the server
 ```Shell
 cargo run-server
+```
+
+Run the server with custom parameters
+```Shell
+cargo run --bin server -- <your_world_file> [--ip <bind_ip>] [--port <bind_port>]
 ```
 
 Run the raw client
@@ -41,6 +50,11 @@ cargo run-client-tui
 Run the GUI client
 ```Shell
 cargo run-client-gui
+```
+
+Run the client with custom parameters
+```Shell
+cargo run --bin server -- <your_world_file> [--raw] [--gui] [--ip <server_ip>] [--port <server_port>]
 ```
 
 Check code quality
