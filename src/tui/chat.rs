@@ -56,7 +56,7 @@ impl crate::cli::HandleEvent for Chat {
                     code,
                     modifiers,
                 } => match (code, modifiers) {
-                    (crate::cli::KeyCode::Tab, crate::cli::KeyModifiers::CONTROL) => self.scope = match &self.scope {
+                    (crate::cli::KeyCode::Char(' '), crate::cli::KeyModifiers::CONTROL) => self.scope = match &self.scope {
                         crate::messages::EventScope::Global => crate::messages::EventScope::Room,
                         crate::messages::EventScope::Room => crate::messages::EventScope::Group,
                         _ => crate::messages::EventScope::Global,
