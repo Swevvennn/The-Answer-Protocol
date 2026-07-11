@@ -450,7 +450,7 @@ impl Player {
         }
         if killed {
             for player in &game.rooms[&name].players.clone() {
-                Self::update_quests(game, player, "kill", &npc).await;
+                Self::update_quests(game, player, "kill", npc).await;
             }
         }
         if game.players[player].status.hp == 0 {
