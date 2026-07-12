@@ -73,6 +73,7 @@ impl Cli {
     }
 
     async fn run_client(mut client: tap::network::Client, game: tap::utils::Shared<tap::game::GameState>) {
+        let mut flood = tap::utils::FloodDetector::new(20, 1);
         let mut username = String::new();
         tap::cli::Logger::info(&format!(
             "New client connected (\x1b[36m{}\x1b[0m)",
@@ -95,6 +96,13 @@ impl Cli {
             match client.reader.read().await {
                 Ok(Some(message)) => {
                     tap::cli::Logger::from(&client, &username, &message).await;
+                    if flood.record() {
+                        tap::cli::Logger::warning(&format!(
+                            "\x1b[0;35m{}\x1b[0;0m (\x1b[0;36m{}\x1b[0;0m): command flooding",
+                            if username.is_empty() { "?" } else { &username },
+                            client.addr,
+                        )).await;
+                    }
                     match tap::messages::Message::from_str(&message) {
                         Ok(tap::messages::Message::Command(command)) => {
                             if command.kind.requires_auth() && !matches!(client.state, tap::network::ClientState::Authenticated) {
