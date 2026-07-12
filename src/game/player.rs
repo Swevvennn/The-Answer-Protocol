@@ -63,7 +63,7 @@ impl Player {
     pub async fn connect(game: &mut crate::game::GameState, client: &mut crate::network::Client, username: &String) -> crate::messages::Message {
         if game.players.contains_key(username) {
             crate::messages::Message::Error(crate::messages::Error::NameInUse)
-        } else if username.is_empty() {
+        } else if username.is_empty() || username.chars().count() > 256 {
             crate::messages::Message::Error(crate::messages::Error::InvalidName)
         } else {
             if let Some(writer) = &client.writer {
