@@ -47,6 +47,7 @@ pub struct MyApp {
 
 	group_name: String,
 	message: String,
+	chat_scope: String,
 
 	egui_ctx: egui::Context,
 }
@@ -75,7 +76,7 @@ impl eframe::App for MyApp {
 				});
 		}
 
-		if let Some(err) = &data.last_error {
+		if let Some(err) = data.last_error.as_ref().map(|e| e.to_string()) {
 			egui::Panel::top("error_banner")
 				.resizable(false)
 				.default_size(40.0)
@@ -111,13 +112,44 @@ impl eframe::App for MyApp {
 									cmp::max(data.room.items.len(), data.room.npcs.len())
 								) {
 									let p = data.room.players.iter().nth(n).cloned().unwrap_or_default();
-									let npc = data.room.npcs.get(n).cloned().unwrap_or_default();
-									let item = data.room.items.get(n).cloned().unwrap_or_default();
+									let npc = data.room.npcs.get(n).map(|id| {
+										data.npcs.get(id).map(|npc| npc.name.clone()).unwrap_or_else(|| format!("{{{}}}", id))
+									}).unwrap_or_default();
+									let item = data.room.items.get(n).map(|id| {
+										data.items.get(id).map(|item| item.name.clone()).unwrap_or_else(|| format!("{{{}}}", id))
+									}).unwrap_or_default();
 
 									body.row(20.0, |mut row| {
-										row.col(|ui| { ui.label(format!("{}", p)); });
-										row.col(|ui| { ui.label(format!("{}", npc)); });
-										row.col(|ui| { ui.label(format!("{}", item)); });
+										row.col(|ui| {
+											ui.horizontal( |ui| {
+												ui.label(format!("{}", p)); 
+												if p != "" {
+													if ui.button("...").clicked() {
+														data.show_popup("Player", "You can invite this player in your group");
+													}
+												}
+											});
+										});
+										row.col(|ui| {
+											ui.horizontal(|ui| {
+												ui.label(format!("{}", npc));
+												if npc != "" {
+													if ui.button("...").clicked() {
+														data.show_popup("NPC", format!("Interract with {}", npc));
+													}
+												}
+											});
+										});
+										row.col(|ui| {
+											ui.horizontal(|ui| {
+												ui.label(format!("{}", item));
+												if item != "" {
+													if ui.button("...").clicked() {
+														data.show_popup("Item", format!("Interract with {}", item));
+													}
+												}
+											});
+										});
 									});
 								}
 							});
@@ -133,17 +165,49 @@ impl eframe::App for MyApp {
 							ui.strong("Armor:");
 							ui.label(format!("{}", data.player.status.armor));
 							ui.add_space(200.0);
-							ui.button("Unequip");
+							if ui.button("Unequip").clicked() && !data.player.status.armor.is_empty() {
+								if let Some(tx) = &self.action_tx {
+									let cmd = crate::messages::Command {
+										kind: crate::messages::CommandKind::Unequip,
+										payload: crate::messages::Payload::new(&[
+											crate::messages::PayloadKind::String(data.player.status.armor.clone()),
+										]),
+									};
+									let _ = tx.send(UiAction::Command(cmd));
+								}
+							}
 						});
 						ui.horizontal( |ui| {
 							ui.strong("Weapon:");
 							ui.label(format!("{}", data.player.status.weapon));
 							ui.add_space(200.0);
-							ui.button("Unequip");
+							if ui.button("Unequip").clicked() && !data.player.status.weapon.is_empty() {
+								if let Some(tx) = &self.action_tx {
+									let cmd = crate::messages::Command {
+										kind: crate::messages::CommandKind::Unequip,
+										payload: crate::messages::Payload::new(&[
+											crate::messages::PayloadKind::String(data.player.status.weapon.clone()),
+										]),
+									};
+									let _ = tx.send(UiAction::Command(cmd));
+								}
+							}
 						});
 					 }
 
 					 if self.state == AppState::Quests {
+						let rows: Vec<(String, String, String, String)> = data.player.quests.values().map(|qp| {
+							let giver = data.npcs.get(&qp.giver).map(|npc| npc.name.clone()).unwrap_or_else(|| qp.giver.clone());
+							match data.quests.get(&qp.quest) {
+								Some(quest) => {
+									let progression = quest_progression(&data, quest, qp);
+									let rewards = quest_rewards(&data, quest);
+									(quest.name.clone(), giver, progression, rewards)
+								}
+								None => (format!("{{{}}}", qp.quest), giver, format!("{}", qp.progress), String::new()),
+							}
+						}).collect();
+
 						TableBuilder::new(ui)
 							.column(Column::remainder())
 							.column(Column::remainder())
@@ -156,19 +220,18 @@ impl eframe::App for MyApp {
 								header.col(|ui| { ui.strong("Rewards"); });
 							})
 							.body(|mut body| {
-								// for (name, kind, value) in &data_rows {
+								for (name, giver, progression, rewards) in &rows {
 									body.row(18.0, |mut row| {
-										row.col(|ui| { ui.label("QUEST_NAME"); });
-										row.col(|ui| { ui.label("NPC"); });
-										row.col(|ui| { ui.label("1/3 Coins"); });
-										row.col(|ui| { ui.label("3 Coins"); });
+										row.col(|ui| { ui.label(name); });
+										row.col(|ui| { ui.label(giver); });
+										row.col(|ui| { ui.label(progression); });
+										row.col(|ui| { ui.label(rewards); });
 									});
-								// }
+								}
 							});
 					 }
 
 					 if self.state == AppState::Group {
-						let text = String::new();
 						ui.add_space(10.0);
 						ui.horizontal( |ui| {
 							ui.add_space(20.0);
@@ -194,11 +257,25 @@ impl eframe::App for MyApp {
 						}
 					}
 
-										 if self.state == AppState::Chat {
+					if self.state == AppState::Chat {
+						if self.chat_scope.is_empty() {
+							self.chat_scope = crate::messages::EventScope::Global.to_string();
+						}
 						ui.centered_and_justified(|ui| {
 							ui.horizontal(|ui| {
 								ui.add_space(20.0);
-								ui.strong("CHANNEL:");
+								egui::ComboBox::from_id_salt("chat_scope")
+									.selected_text(self.chat_scope.clone())
+									.show_ui(ui, |ui| {
+										for scope in [
+											crate::messages::EventScope::Global,
+											crate::messages::EventScope::Group,
+											crate::messages::EventScope::Room,
+										] {
+											let label = scope.to_string();
+											ui.selectable_value(&mut self.chat_scope, label.clone(), label);
+										}
+									});
 								ui.add(
 									egui::TextEdit::singleline(&mut self.message)
 										.hint_text("Your message")
@@ -206,12 +283,10 @@ impl eframe::App for MyApp {
 								);
 								if ui.button("Send").clicked() && !self.message.trim().is_empty() {
 									if let Some(tx) = &self.action_tx {
-										// ASSOMPTION: la commande Chat porte le message en payload
-										// String simple. Adapte si ta CommandKind::Chat attend
-										// aussi un scope (room/group/global) en argument.
 										let cmd = crate::messages::Command {
 											kind: crate::messages::CommandKind::Chat,
 											payload: crate::messages::Payload::new(&[
+												crate::messages::PayloadKind::String(self.chat_scope.clone()),
 												crate::messages::PayloadKind::String(self.message.clone()),
 											]),
 										};
@@ -282,12 +357,19 @@ impl eframe::App for MyApp {
 								data.ui_popup_show = false;
 							}
 						});
-						ui.separator();
-						ui.label(content);
+					}
+					ui.separator();
+					ui.label(content);
+					ui.separator();
+					match title {
+						"Item" => None,
+						"NPC" => None,
+						"Player" => None,
+						_ => None
 					}
 				});
+			}
 		}
-
 
 		drop(data);
 
@@ -478,29 +560,42 @@ impl MyApp {
 	fn quests_ui(&mut self, ui: &mut egui::Ui) {
 		let data = self.knowledge.lock().unwrap();
 
+		let (mut completed, mut actives, mut abandoned) = (0, 0, 0);
+		for q in data.player.quests.values() {
+			match q.status {
+				crate::game::QuestStatus::Completed => completed += 1,
+				crate::game::QuestStatus::Active => actives += 1,
+				crate::game::QuestStatus::Abandoned => abandoned += 1,
+			}
+		}
+
 		ui.add_space(30.0);
 		ui.horizontal( |ui| {
 			ui.add_space(300.0);
-			ui.strong("Completed COMPLETED");
+			ui.strong(format!("Completed {}", completed));
 			ui.add_space(300.0);
-			ui.strong("Actives ACTIVES");
+			ui.strong(format!("Actives {}", actives));
 			ui.add_space(300.0);
-			ui.strong("Abandonned ABANDONED");
+			ui.strong(format!("Abandonned {}", abandoned));
 		});
 		ui.add_space(30.0);
 		ui.separator();
 		ui.add_space(30.0);
-		// ASSOMPTION: crate::game::Quest a un champ `.name`. Ajuste si besoin.
-		// Progression/Rewards: pas assez d'info sur QuestProgress pour les remplir,
-		// laissés en placeholder "-" -- à compléter avec les vrais champs.
-		let quests: Vec<(String, crate::game::QuestStatus)> = data
+		let quests: Vec<(String, crate::game::QuestStatus, String)> = data
 			.player
 			.quests
 			.values()
-			.map(|q| (q.quest.clone(), q.status.clone()))
+			.map(|qp| {
+				let progression = match data.quests.get(&qp.quest) {
+					Some(quest) => quest_progression(&data, quest, qp),
+					None => format!("{}", qp.progress),
+				};
+				(qp.quest.clone(), qp.status.clone(), progression)
+			})
 			.collect();
  
 		let mut to_abandon: Option<String> = None;
+		let mut to_popup: Option<(String, String)> = None;
  
 		TableBuilder::new(ui)
 			.column(Column::exact(100.0))
@@ -516,7 +611,7 @@ impl MyApp {
 				header.col(|ui| { ui.strong("Abandon"); });
 			})
 			.body(|mut body| {
-				for (id, status) in &quests {
+				for (id, status, progression) in &quests {
 					let name = data.quests.get(id).map(|q| q.name.clone()).unwrap_or_else(|| id.clone());
 					let status_str = match status {
 						crate::game::QuestStatus::Active => "Active",
@@ -527,10 +622,17 @@ impl MyApp {
 					body.row(30.0, |mut row| {
 						row.col(|ui| { ui.label(status_str); });
 						row.col(|ui| { ui.label(&name); });
-						row.col(|ui| { ui.label("-"); });
-						row.col(|ui| { ui.button("details"); });
+						row.col(|ui| { ui.label(progression); });
 						row.col(|ui| {
-							if *status == crate::game::QuestStatus::Active && ui.button("abandon").clicked() {
+							if ui.button("details").clicked() {
+								let content = data.quests.get(id)
+									.map(|q| q.description.clone())
+									.unwrap_or_else(|| "No description available.".to_string());
+								to_popup = Some((name.clone(), content));
+							}
+						});
+						row.col(|ui| {
+							if matches!(status, crate::game::QuestStatus::Active) && ui.button("abandon").clicked() {
 								to_abandon = Some(id.clone());
 							}
 						});
@@ -539,6 +641,9 @@ impl MyApp {
 			});
  
 		drop(data);
+		if let Some((title, content)) = to_popup {
+			self.knowledge.lock().unwrap().show_popup(title, content);
+		}
 		if let Some(id) = to_abandon {
 			if let Some(tx) = &self.action_tx {
 				let cmd = crate::messages::Command {
@@ -594,12 +699,46 @@ impl MyApp {
 		egui::ScrollArea::vertical().show(ui, |ui| {
 			for msg in data.chat.iter() {
 				ui.horizontal(|ui| {
-					ui.strong(format!("{}: ", msg.author));
+					ui.strong(format!("[{}] {}: ", msg.scope, msg.author));
 					ui.label(&msg.content);
 				});
 			}
 		});
 	}
+}
+
+fn quest_progression(
+	data: &crate::tui::Knowledge,
+	quest: &crate::game::Quest,
+	progress: &crate::game::QuestProgress,
+) -> String {
+	match &quest.task {
+		crate::game::QuestKind::Bring { item, count } => {
+			let item = data.items.get(item).map(|i| i.name.clone()).unwrap_or_else(|| item.clone());
+			format!("{}/{} {}", progress.progress, count, item)
+		}
+		crate::game::QuestKind::Kill { enemy, count } => {
+			let enemy = data.npcs.get(enemy).map(|n| n.name.clone()).unwrap_or_else(|| enemy.clone());
+			format!("{}/{} {}", progress.progress, count, enemy)
+		}
+		crate::game::QuestKind::Goto { room } => {
+			let room = data.rooms.get(room).map(|r| r.name.clone()).unwrap_or_else(|| room.clone());
+			format!("Goto {}", room)
+		}
+		crate::game::QuestKind::Talk { npc } => {
+			let npc = data.npcs.get(npc).map(|n| n.name.clone()).unwrap_or_else(|| npc.clone());
+			format!("Talk to {}", npc)
+		}
+	}
+}
+
+fn quest_rewards(data: &crate::tui::Knowledge, quest: &crate::game::Quest) -> String {
+	quest
+		.reward
+		.iter()
+		.map(|id| data.items.get(id).map(|i| i.name.clone()).unwrap_or_else(|| id.clone()))
+		.collect::<Vec<String>>()
+		.join(", ")
 }
 
 async fn run_network(
