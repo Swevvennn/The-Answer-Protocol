@@ -1,3 +1,6 @@
+mod flood;
+pub use flood::FloodDetector;
+
 mod func;
 pub use func::invalid_input;
 

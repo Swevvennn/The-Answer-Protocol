@@ -117,6 +117,16 @@ impl Reader {
                         }
                         Ok(v) => {
                             self.buffer += &String::from_utf8_lossy(&buffer[..v]);
+                            if self.buffer.chars().count() > 4096 {
+                                self.buffer = self.buffer
+                                    .chars()
+                                    .rev()
+                                    .take(4096)
+                                    .collect::<Vec<_>>()
+                                    .into_iter()
+                                    .rev()
+                                    .collect();
+                            }
                         },
                         Err(e) => {
                             self.close();
