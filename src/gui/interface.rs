@@ -9,20 +9,12 @@ use std::str::FromStr;
 pub enum UiAction {
 	Command(crate::messages::Command),
 }
-
-// Popups interactifs inspirés des popups du TUI (src/tui/popup.rs + src/cli/friendly.rs)
 enum GuiPopup {
-	// Describe "item" : Take (au sol) ou Consume/Equip/Drop (inventaire)
 	Item { id: String, in_room: bool },
-	// Describe "npc" : Attack si ennemi, sinon Talk / Ask for a quest
 	Npc { id: String },
-	// Action "player" : Invite
 	Player { name: String },
-	// Describe "enemy_status" : Attack (en combat)
 	Enemy { id: String },
-	// Action "move" : une direction par sortie de la salle courante
 	Move,
-	// Ask "group_leave" : Yes / No
 	GroupLeave,
 }
 
@@ -426,7 +418,6 @@ impl MyApp {
 					.into();
 				});
 
-				// On récupère le ctx et on lance la boucle réseau
 				self.egui_ctx = cc.egui_ctx.clone();
 				let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
 				self.action_tx = Some(tx);
@@ -514,7 +505,6 @@ impl MyApp {
 		ui.add_space(20.0);
 
 		if in_combat {
-			// Vue combat, comme la RoomPage du TUI
 			ui.vertical_centered( |ui| {
 				ui.heading("Combat");
 			});
@@ -540,9 +530,6 @@ impl MyApp {
 			});
 			ui.add_space(20.0);
 
-			// Carte du monde inspirée du widget Map du TUI : centrée, remplit
-			// l'espace disponible, liaisons dessinées en traits continus, et
-			// déplacement uniquement vers les salles adjacentes connectées.
 			let mut to_move: Option<crate::game::Direction> = None;
 			if let Some(current) = data.positions.get(&data.room.room.id).cloned() {
 				let min_x = data.rpositions.keys().map(|p| p.0).min().unwrap_or(0);
@@ -580,7 +567,6 @@ impl MyApp {
 						)
 					};
 
-					// Traits continus entre les salles connectées
 					let stroke = egui::Stroke::new(2.0, ui.visuals().weak_text_color());
 					for y in min_y..=max_y {
 						for x in min_x..=max_x {
@@ -607,7 +593,6 @@ impl MyApp {
 						let (x, y) = *pos;
 						let explored = data.positions.contains_key(id);
 						let name = data.rooms.get(id).map(|r| r.name.clone()).unwrap_or_else(|| format!("{{{}}}", id));
-						// Direction si la salle est adjacente et connectée à la salle courante
 						let direction = if (x, y) == (current.0 + 1, current.1) && data.connections.contains(&(current, (x, y))) {
 							Some(crate::game::Direction::East)
 						} else if (x, y) == (current.0 - 1, current.1) && data.connections.contains(&((x, y), current)) {
@@ -639,7 +624,6 @@ impl MyApp {
 								to_move = Some(direction);
 							}
 						} else {
-							// Salle non adjacente : affichée mais non actionnable
 							let _ = ui.put(cell_rect(x, y), button);
 						}
 					}
@@ -1129,9 +1113,6 @@ fn quest_rewards(data: &crate::tui::Knowledge, quest: &crate::game::Quest) -> St
 		.collect::<Vec<String>>()
 		.join(", ")
 }
-
-// Met en file les Describe nécessaires pour afficher les quêtes du joueur :
-// la quête elle-même, son donneur, la cible de la tâche et les récompenses.
 fn queue_quest_describes(
 	k: &mut crate::tui::Knowledge,
 	commands: &mut Vec<crate::messages::Command>,
@@ -1196,53 +1177,51 @@ async fn run_network(
             waiter.begin(3);
 		}
 
-				tokio::select! {
+		if let Some(e) = tokio::select! {
 			_ = waiter.wait() => {
-				// timeout serveur, rien à faire de spécial pour l'instant
+				Some(crate::messages::Error::ServerTimeOut)
 			}
 			action = action_rx.recv() => {
 				match action {
 					Some(UiAction::Command(cmd)) => commands.push(cmd),
-					None => break, // l'app UI a été fermée
+					None => break, 
 				}
+				None
 			}
 			message = client.reader.read() => {
 				match message {
 					Ok(Some(raw)) => {
 						if let Ok(msg) = crate::messages::Message::from_str(&raw) {
 							match msg {
-								crate::messages::Message::Error(_) => {
+								crate::messages::Message::Error(e) => {
 									waiter.end();
+									knowledge.lock().unwrap().last_error = Some(e);
 									if !commands.is_empty() { commands.remove(0); }
 								}
 								crate::messages::Message::Response(resp) => {
 									waiter.end();
 									let command = if commands.is_empty() { None } else { Some(commands.remove(0)) };
-									if let Some(e) = process_response(resp, command, &knowledge, &mut client, &mut commands).await {
-										knowledge.lock().unwrap().last_error = Some(e);
-									}
+									process_response(resp, command, &knowledge, &mut client, &mut commands).await;
 								}
 								crate::messages::Message::Event(evt) => {
-									if let Some(e) = process_event(evt, &knowledge, &mut commands).await {
-										knowledge.lock().unwrap().last_error = Some(e);
-									}
+									process_event(evt, &knowledge, &mut commands).await;
 								}
 								crate::messages::Message::Command(_) => {
-									// TODO: si le serveur pousse des Command non sollicitées
-									// (broadcast d'actions d'autres joueurs...), traite ici.
-									// Pour l'instant on ignore sans casser la boucle.
 								}
 							}
 						}
+						None
 					}
-					_ => break,
+					_ => Some(crate::messages::Error::ConnectionClosed),
 				}
 			}
+		} && e.is_fatal() {
+			break;
 		}
-	}
 
-	// Réveille l'UI après chaque itération qui a pu changer l'état
-	ctx.request_repaint();
+		ctx.request_repaint();
+	}
+	ctx.send_viewport_cmd(egui::ViewportCommand::Close);
 }
 
 async fn process_response(
@@ -1387,8 +1366,6 @@ async fn process_response(
 					Some(crate::messages::Error::UnexpectedServerResponse)
 				}
 			}
-			// ASSOMPTION: même format de payload (Json<Combat>) que CombatStats côté event.
-			// Vérifie ce que ton serveur renvoie réellement pour Attack.
 			crate::messages::CommandKind::Attack => {
 				let mut combat = crate::game::Combat::default();
 				if response.payload.extract(&mut [
@@ -1526,7 +1503,6 @@ async fn process_response(
 				if response.payload.extract(&mut [
 					crate::messages::PayloadExtractor::Json(&mut quest),
 				]).is_ok() {
-					// ASSOMPTION: crate::game::Quest a un champ `.name`.
 					let mut k = knowledge.lock().unwrap();
 					k.show_popup("New quest", format!("New quest obtained: {}", quest.name));
 					drop(k);
@@ -1555,7 +1531,6 @@ async fn process_response(
 			_ => None,
 		},
 		None => {
-			// Réponse au handshake initial ("hello"), sans Command associée
 			client.proto.clear();
 			if response.payload.extract(&mut [
 				crate::messages::PayloadExtractor::String(&mut "hello".to_string()),

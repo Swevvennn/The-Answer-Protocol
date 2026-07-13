@@ -139,8 +139,10 @@ Once the quest objective is completed, players must return to speak with the NPC
 
 ## World Design
 
-•A "World Design" section describing your world layout, room connections, NPC
-roles, and item distribution.
+The current map is directly inspired by the manga Shangri-La Frontier but any other detail is an original creation.
+The quests are around the "old woman" last quest with the "old man" rewards wich are linked with the 7 sins and the idea of a better past.
+The cities contains NCPs who give quests or dialogue and valuable items and between each city lies a wild zone with unique items and enemies to defeat.
+The enemies represent the future of the world: sinless, strong and young.  
 
 ## Server Logging
 
@@ -153,7 +155,7 @@ All server logs are in format:
 ## Group Contributions
 
 Roles:
-- monsmond
+- mosmond
     - GUI Client
     - World building
 - tbaricau

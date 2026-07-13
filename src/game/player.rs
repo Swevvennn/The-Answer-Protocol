@@ -397,7 +397,7 @@ impl Player {
                                     if !player.status.weapon.is_empty() && let crate::game::ItemKind::Weapon { damage } = &game.items[&player.status.weapon].data {
                                         *damage
                                     } else {
-                                        1
+                                        10
                                     }.saturating_sub(room.combat.enemies[i].armor)
                                 );
                                 if room.combat.enemies[i].hp == 0 {
