@@ -21,7 +21,9 @@ impl Group {
     pub fn create(game: &mut crate::game::GameState, player: &String, name: &String) -> crate::messages::Message {
         if game.groups.contains_key(name) {
             return crate::messages::Message::Error(crate::messages::Error::NameInUse);
-        }
+        } else if name.is_empty() || name.len() > 256 {
+			return crate::messages::Message::Error(crate::messages::Error::InvalidName);
+		}
         if let Some(player) = game.players.get_mut(player) {
             if !player.group.is_empty() {
                 return crate::messages::Message::Error(crate::messages::Error::AlreadyInGroup);
