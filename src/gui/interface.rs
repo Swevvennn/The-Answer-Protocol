@@ -14,7 +14,6 @@ enum GuiPopup {
 	Npc { id: String },
 	Player { name: String },
 	Enemy { id: String },
-	Move,
 	GroupLeave,
 }
 
@@ -159,9 +158,17 @@ impl eframe::App for MyApp {
 							ui.strong("HP:");
 							ui.label(format!("{}/{}", data.player.status.hp, data.player.status.max_hp));
 						});
+						let mut armor = data.player.status.armor.clone();
+						if !armor.is_empty() {
+							armor = data.item_name(&armor);
+						}
+						let mut weapon = data.player.status.weapon.clone();
+						if !weapon.is_empty() {
+							weapon = data.item_name(&weapon);
+						}
 						ui.horizontal( |ui| {
 							ui.strong("Armor:");
-							ui.label(&data.player.status.armor);
+							ui.label(armor);
 							ui.add_space(200.0);
 							if ui.button("Unequip").clicked() && !data.player.status.armor.is_empty() && let Some(tx) = &self.action_tx {
                                 let cmd = crate::messages::Command {
@@ -175,7 +182,7 @@ impl eframe::App for MyApp {
 						});
 						ui.horizontal( |ui| {
 							ui.strong("Weapon:");
-							ui.label(&data.player.status.weapon);
+							ui.label(weapon);
 							ui.add_space(200.0);
 							if ui.button("Unequip").clicked() && !data.player.status.weapon.is_empty() && let Some(tx) = &self.action_tx {
                                 let cmd = crate::messages::Command {
@@ -269,14 +276,13 @@ impl eframe::App for MyApp {
 						}
 					}
 
-										 if self.state == AppState::Chat {
+					if self.state == AppState::Chat {
 						if self.chat_scope.is_empty() {
 							self.chat_scope = crate::messages::EventScope::Global.to_string();
 						}
 						ui.centered_and_justified(|ui| {
 							ui.horizontal(|ui| {
 								ui.add_space(20.0);
-								ui.strong("CHANNEL:");
 								egui::ComboBox::from_id_salt("chat_scope")
 									.selected_text(self.chat_scope.clone())
 									.show_ui(ui, |ui| {
@@ -349,9 +355,13 @@ impl eframe::App for MyApp {
 					ui.add_space(30.0);
 					ui.separator();
 					ui.add_space(30.0);
-					if ui.button("Déconnexion").clicked() {
+					if ui.button("Exit").clicked() {
 						self.state = AppState::AskUsername;
 						self.username_input.clear();
+						if let Some(tx) = &self.action_tx {
+							let cmd = crate::messages::Command::new(crate::messages::CommandKind::Quit);
+							let _ = tx.send(UiAction::Command(cmd));
+						};
 					}
 				});
 			}
@@ -438,7 +448,7 @@ impl MyApp {
 	fn show_username_screen(&mut self, ui: &mut egui::Ui) {
 		ui.vertical_centered(|ui| {
 			ui.add_space(50.0);
-			ui.heading("Entrez votre nom d'utilisateur");
+			ui.heading("Enter username");
 			ui.add_space(20.0);
 
 			let response = ui.add(
@@ -453,7 +463,7 @@ impl MyApp {
 				&& ui.input(|i| i.key_pressed(egui::Key::Enter));
 
 			ui.add_space(10.0);
-			let button_clicked = ui.button("Valider").clicked();
+			let button_clicked = ui.button("Validate").clicked();
 
 			if (enter_pressed || button_clicked) && !self.username_input.trim().is_empty() {
 				self.username = self.username_input.trim().to_string();
@@ -465,7 +475,7 @@ impl MyApp {
 	fn connect(&mut self, ui: &mut egui::Ui) {
 		ui.vertical_centered(|ui| {
 			ui.add_space(50.0);
-			ui.heading(format!("Bienvenue, {} !", self.username));
+			ui.heading(format!("Welcome {} !", self.username));
 			ui.add_space(200.0);
 			ui.heading(egui::RichText::new("42").size(80.0).strong());
 			ui.heading(egui::RichText::new("TAP").size(80.0).strong());
@@ -523,11 +533,6 @@ impl MyApp {
 				}
 			});
 		} else {
-			ui.vertical_centered( |ui| {
-				if ui.button("Move").clicked() {
-					open_popup = Some(GuiPopup::Move);
-				}
-			});
 			ui.add_space(20.0);
 
 			let mut to_move: Option<crate::game::Direction> = None;
@@ -658,7 +663,7 @@ impl MyApp {
 
 		let item_ids: Vec<String> = data.player.items.clone();
 		let mut to_send: Option<(crate::messages::CommandKind, String)> = None;
-		let mut open_popup: Option<GuiPopup> = None;
+		let open_popup: Option<GuiPopup> = None;
 
 		TableBuilder::new(ui)
 			.column(Column::exact(400.0))
@@ -682,9 +687,7 @@ impl MyApp {
  
 					body.row(30.0, |mut row| {
 						row.col(|ui| {
-							if ui.button(&name).clicked() {
-								open_popup = Some(GuiPopup::Item { id: id.clone(), in_room: false });
-							}
+							ui.strong(&name);
 						});
 						row.col(|ui| { ui.label(&description); });
 						row.col(|ui| {
@@ -969,27 +972,6 @@ impl MyApp {
 					});
 				});
 			}
-			GuiPopup::Move => {
-				let directions: Vec<crate::game::Direction> = data.room.room.exits.keys().cloned().collect();
-				window("Move to".to_string()).show(ctx, |ui| {
-					ui.horizontal(|ui| {
-						for direction in &directions {
-							if ui.button(direction.to_string()).clicked() {
-								commands.push(crate::messages::Command {
-									kind: crate::messages::CommandKind::Move,
-									payload: crate::messages::Payload::new(&[
-										crate::messages::PayloadKind::String(direction.to_string()),
-									]),
-								});
-								close = true;
-							}
-						}
-						if ui.button("Return").clicked() {
-							close = true;
-						}
-					});
-				});
-			}
 			GuiPopup::GroupLeave => {
 				window("Leave Group".to_string()).show(ctx, |ui| {
 					ui.label("Do you really want to leave the group ?");
@@ -1029,7 +1011,7 @@ impl MyApp {
 			let create_clicked = ui.button("Create Group").clicked();
 			ui.add(
 				egui::TextEdit::singleline(&mut self.group_name)
-					.hint_text("Nom du groupe")
+					.hint_text("Group name")
 					.desired_width(500.0),
 			);
 			if create_clicked && !self.group_name.trim().is_empty() && let Some(tx) = &self.action_tx {
@@ -1047,7 +1029,7 @@ impl MyApp {
 		ui.add_space(20.0);
  
 		if data.player.group.is_empty() {
-			ui.label("Pas de groupe actuellement.");
+			ui.label("Not in a group.");
 		} else {
 			ui.horizontal(|ui| {
 				ui.strong(format!("{} members", data.group.name));
@@ -1164,7 +1146,6 @@ async fn run_network(
 	let mut waiter = crate::utils::Waiter::default();
 	let mut commands: Vec<crate::messages::Command> = Vec::new();
 	waiter.begin(3);
-
 	loop {
 		if !client.is_open() {
 			break;
@@ -1250,6 +1231,7 @@ async fn process_response(
 					}
 					drop(k);
 					commands.push(crate::messages::Command::new(crate::messages::CommandKind::Look));
+					commands.push(crate::messages::Command::new(crate::messages::CommandKind::Status));
 					None
 				} else {
 					Some(crate::messages::Error::UnexpectedServerResponse)
