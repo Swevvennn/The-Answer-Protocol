@@ -136,10 +136,8 @@ impl eframe::App for MyApp {
 
 									body.row(20.0, |mut row| {
 										row.col(|ui| {
-											if let Some(p) = &p {
-												if ui.button(p).clicked() {
-													open_popup = Some(GuiPopup::Player { name: p.clone() });
-												}
+											if let Some(p) = &p && ui.button(p).clicked() {
+                                                open_popup = Some(GuiPopup::Player { name: p.clone() });
 											}
 										});
 										row.col(|ui| {
@@ -171,34 +169,30 @@ impl eframe::App for MyApp {
 						});
 						ui.horizontal( |ui| {
 							ui.strong("Armor:");
-							ui.label(format!("{}", data.player.status.armor));
+							ui.label(&data.player.status.armor);
 							ui.add_space(200.0);
-							if ui.button("Unequip").clicked() && !data.player.status.armor.is_empty() {
-								if let Some(tx) = &self.action_tx {
-									let cmd = crate::messages::Command {
-										kind: crate::messages::CommandKind::Unequip,
-										payload: crate::messages::Payload::new(&[
-											crate::messages::PayloadKind::String(data.player.status.armor.clone()),
-										]),
-									};
-									let _ = tx.send(UiAction::Command(cmd));
-								}
+							if ui.button("Unequip").clicked() && !data.player.status.armor.is_empty() && let Some(tx) = &self.action_tx {
+                                let cmd = crate::messages::Command {
+                                    kind: crate::messages::CommandKind::Unequip,
+                                    payload: crate::messages::Payload::new(&[
+                                        crate::messages::PayloadKind::String(data.player.status.armor.clone()),
+                                    ]),
+                                };
+                                let _ = tx.send(UiAction::Command(cmd));
 							}
 						});
 						ui.horizontal( |ui| {
 							ui.strong("Weapon:");
-							ui.label(format!("{}", data.player.status.weapon));
+							ui.label(&data.player.status.weapon);
 							ui.add_space(200.0);
-							if ui.button("Unequip").clicked() && !data.player.status.weapon.is_empty() {
-								if let Some(tx) = &self.action_tx {
-									let cmd = crate::messages::Command {
-										kind: crate::messages::CommandKind::Unequip,
-										payload: crate::messages::Payload::new(&[
-											crate::messages::PayloadKind::String(data.player.status.weapon.clone()),
-										]),
-									};
-									let _ = tx.send(UiAction::Command(cmd));
-								}
+							if ui.button("Unequip").clicked() && !data.player.status.weapon.is_empty() && let Some(tx) = &self.action_tx {
+                                let cmd = crate::messages::Command {
+                                    kind: crate::messages::CommandKind::Unequip,
+                                    payload: crate::messages::Payload::new(&[
+                                        crate::messages::PayloadKind::String(data.player.status.weapon.clone()),
+                                    ]),
+                                };
+                                let _ = tx.send(UiAction::Command(cmd));
 							}
 						});
 					 }
@@ -508,16 +502,14 @@ impl MyApp {
 
 		ui.add_space(20.0);
 		ui.vertical_centered( |ui| {
-			if ui.button("Refresh").clicked() {
-				if let Some(tx) = &self.action_tx {
-					let _ = tx.send(UiAction::Command(crate::messages::Command::new(crate::messages::CommandKind::Look)));
-				}
+			if ui.button("Refresh").clicked() && let Some(tx) = &self.action_tx {
+                let _ = tx.send(UiAction::Command(crate::messages::Command::new(crate::messages::CommandKind::Look)));
 			}
 		});
 		ui.add_space(20.0);
 		ui.vertical_centered( |ui| {
-			ui.strong(format!("{}", data.room.room.name));
-			ui.label(format!("{}", data.room.room.description));
+			ui.strong(&data.room.room.name);
+			ui.label(&data.room.room.description);
 		});
 		ui.add_space(20.0);
 
@@ -653,16 +645,14 @@ impl MyApp {
 					}
 				});
 
-				if let Some(direction) = to_move {
-					if let Some(tx) = &self.action_tx {
-						let cmd = crate::messages::Command {
-							kind: crate::messages::CommandKind::Move,
-							payload: crate::messages::Payload::new(&[
-								crate::messages::PayloadKind::String(direction.to_string()),
-							]),
-						};
-						let _ = tx.send(UiAction::Command(cmd));
-					}
+				if let Some(direction) = to_move && let Some(tx) = &self.action_tx {
+                    let cmd = crate::messages::Command {
+                        kind: crate::messages::CommandKind::Move,
+                        payload: crate::messages::Payload::new(&[
+                            crate::messages::PayloadKind::String(direction.to_string()),
+                        ]),
+                    };
+                    let _ = tx.send(UiAction::Command(cmd));
 				}
 			}
 		}
@@ -735,16 +725,14 @@ impl MyApp {
 		if open_popup.is_some() {
 			self.popup = open_popup;
 		}
-		if let Some((kind, id)) = to_send {
-			if let Some(tx) = &self.action_tx {
-				let cmd = crate::messages::Command {
-					kind,
-					payload: crate::messages::Payload::new(&[
-						crate::messages::PayloadKind::String(id),
-					]),
-				};
-				let _ = tx.send(UiAction::Command(cmd));
-			}
+		if let Some((kind, id)) = to_send && let Some(tx) = &self.action_tx {
+            let cmd = crate::messages::Command {
+                kind,
+                payload: crate::messages::Payload::new(&[
+                    crate::messages::PayloadKind::String(id),
+                ]),
+            };
+            let _ = tx.send(UiAction::Command(cmd));
 		}
 	}
 
@@ -831,16 +819,14 @@ impl MyApp {
 		if to_select.is_some() {
 			self.selected_quest = to_select;
 		}
-		if let Some(id) = to_abandon {
-			if let Some(tx) = &self.action_tx {
-				let cmd = crate::messages::Command {
-					kind: crate::messages::CommandKind::AbandonQuest,
-					payload: crate::messages::Payload::new(&[
-						crate::messages::PayloadKind::String(id),
-					]),
-				};
-				let _ = tx.send(UiAction::Command(cmd));
-			}
+		if let Some(id) = to_abandon && let Some(tx) = &self.action_tx {
+            let cmd = crate::messages::Command {
+                kind: crate::messages::CommandKind::AbandonQuest,
+                payload: crate::messages::Payload::new(&[
+                    crate::messages::PayloadKind::String(id),
+                ]),
+            };
+            let _ = tx.send(UiAction::Command(cmd));
 		}
 	}
 
@@ -1062,16 +1048,14 @@ impl MyApp {
 					.hint_text("Nom du groupe")
 					.desired_width(500.0),
 			);
-			if create_clicked && !self.group_name.trim().is_empty() {
-				if let Some(tx) = &self.action_tx {
-					let cmd = crate::messages::Command {
-						kind: crate::messages::CommandKind::GroupCreate,
-						payload: crate::messages::Payload::new(&[
-							crate::messages::PayloadKind::String(self.group_name.clone()),
-						]),
-					};
-					let _ = tx.send(UiAction::Command(cmd));
-				}
+			if create_clicked && !self.group_name.trim().is_empty() && let Some(tx) = &self.action_tx {
+                let cmd = crate::messages::Command {
+                    kind: crate::messages::CommandKind::GroupCreate,
+                    payload: crate::messages::Payload::new(&[
+                        crate::messages::PayloadKind::String(self.group_name.clone()),
+                    ]),
+                };
+                let _ = tx.send(UiAction::Command(cmd));
 			}
 		});
 		ui.add_space(20.0);
@@ -1205,13 +1189,11 @@ async fn run_network(
 			break;
 		}
 
-		if let Some(writer) = &client.writer {
-			if !waiter.is_waiting() && !commands.is_empty() {
-				if writer.write_message(&crate::messages::Message::Command(commands[0].clone())).await.is_err() {
-					break;
-				}
-				waiter.begin(3);
-			}
+		if let Some(writer) = &client.writer && !waiter.is_waiting() && !commands.is_empty() {
+            if writer.write_message(&crate::messages::Message::Command(commands[0].clone())).await.is_err() {
+                break;
+            }
+            waiter.begin(3);
 		}
 
 				tokio::select! {
