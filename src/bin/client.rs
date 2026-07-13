@@ -39,13 +39,11 @@ async fn start() -> Option<tap::messages::Error> {
     }
     if args.raw {
         tap::cli::RawCli::default().start(client).await
+    } else if args.gui {
+        tap::gui::MyApp::default().start(client)
     } else {
         tap::cli::FriendlyCli::default().start(client).await
     }
-    //  else if args.gui {
-    // } else {
-    //     cli.run_friendly().await
-    // }
 }
 
 #[tokio::main]

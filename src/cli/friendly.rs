@@ -827,10 +827,8 @@ impl FriendlyCli {
 
     async fn process_event(&mut self, event: crate::messages::Event) -> Option<crate::messages::Error> {
         match (&event.scope, &event.kind) {
-            (
-                crate::messages::EventScope::Global | crate::messages::EventScope::Group | crate::messages::EventScope::Room,
-                crate::messages::EventKind::Chat
-            ) => {
+            (crate::messages::EventScope::Global | crate::messages::EventScope::Group | crate::messages::EventScope::Room,
+            crate::messages::EventKind::Chat) => {
                 let mut message = crate::tui::ChatMessage {
                     scope: event.scope,
                     author: String::new(),

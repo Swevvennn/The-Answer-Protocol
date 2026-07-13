@@ -15,6 +15,11 @@ pub struct Knowledge {
     pub group: crate::game::Group,
     pub invitations: std::collections::HashSet<String>,
     pub player: crate::game::Player,
+
+	pub ui_popup: Option<(String, String)>,
+	pub ui_popup_show: bool,
+	pub chat: Vec<crate::tui::ChatMessage>,
+	pub last_error: Option<crate::messages::Error>
 }
 
 impl Knowledge {
@@ -129,5 +134,9 @@ impl Knowledge {
             self.describes.insert(id.to_string());
             format!("{{{}}}", id)
         }
+    }
+	pub fn show_popup(&mut self, title: impl Into<String>, content: impl Into<String>) {
+        self.ui_popup = Some((title.into(), content.into()));
+        self.ui_popup_show = true;
     }
 }

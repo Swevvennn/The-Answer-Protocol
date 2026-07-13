@@ -11,21 +11,7 @@ struct Data {
 }
 
 fn main() -> eframe::Result<()> {
-
-	// let file_path = "exemple.json";
-
-	// println!("In file {file_path}");
-
-    // let contents = fs::read_to_string(file_path)
-    //     .expect("Should have been able to read the file");
-
-	// let temp = contents.as_str();
-
-	// let data: Data = serde_json::from_str(temp);
-
-    // println!("With text:\n{}", data.items);
-
-    let options = eframe::NativeOptions::default();
+	let options = eframe::NativeOptions::default();
 
     eframe::run_native(
         "My First GUI",
